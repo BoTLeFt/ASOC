@@ -3,6 +3,7 @@ version: '3.4'
 services:
   asoc:
     image: asoc
+    container_name: asoc
     build:
       context: .
       dockerfile: ./Dockerfile
@@ -10,6 +11,7 @@ services:
       - 8080:8080
   asoc-front:
     image: asoc-front
+    container_name: asoc-front
     build:
       context: .
       dockerfile: frontend/Dockerfile
@@ -17,6 +19,7 @@ services:
       - 80:80
   asoc-pgsql:
     image: asoc-pgsql
+    container_name: asoc-pgsql
     environment:
       POSTGRES_DB: "asocdb"
       POSTGRES_USER: "asocuser"

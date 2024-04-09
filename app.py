@@ -2,13 +2,12 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from passlib.context import CryptContext
 import jwt
-import logging
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
+import psycopg2
+import psycopg2.extras
 
 
-
-logging.basicConfig(level=logging.INFO, filename="py_log.log",filemode="w")
 app = FastAPI()
 secret_key = "l5h49PKyBb3GG0qIhay-Dk4zyL53FGuN8cn2Eax3NVo" # to_vault
 
@@ -20,43 +19,35 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# Здесь вы можете использовать фиктивные данные для пользователей.
-# В реальном приложении данные пользователей следует хранить в базе данных.
-fake_users_db = {
-    "user@example.com": {
-        "username": "user@example.com",
-        "full_name": "User",
-        "email": "user@example.com",
-        "hashed_password": "$2b$12$6zN3HJIxgg6Xe1jpjTzQj.0Pc431KF2XIflxNSfU6ByLM9OIQ9kBi", # хэш пароля: 123456
-        "disabled": False,
-    }
-}
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+def get_user(username: str):
+    db_connection = psycopg2.connect(dbname='asocdb',     
+                                    user='asocuser',
+                                    password='asocpass',     # Change and to vault
+                                    host='asoc-pgsql',
+                                    port=5432)
+    cur = db_connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute("SELECT * FROM users WHERE username = %s ORDER BY disabled desc", (username,))
+    user = cur.fetchone()
+    cur.close()
+    return user
 
-
-def get_user(email: str):
-    if email in fake_users_db:
-        user_dict = fake_users_db[email]
-        return user_dict
     
-
-def authenticate_user(fake_db, email: str, password: str):
-    user = get_user(email)
+def authenticate_user(username: str, password: str):
+    user = get_user(username)
+    print("user", user)
     if not user:
         return False
-    if not verify_password(password, user["hashed_password"]):
+    if not pwd_context.verify(password, user["hashed_password"]):
         return False
     return user
 
 
-def create_access_token(email: str, expires_delta: int = None):
-    to_encode = {"sub": email}
+def create_access_token(username: str, expires_delta: int = None):
+    to_encode = {"sub": username}
     if expires_delta:
         expire = datetime.now(datetime.UTC) + timedelta(seconds=expires_delta)
         to_encode.update({"exp": expire})
@@ -66,7 +57,7 @@ def create_access_token(email: str, expires_delta: int = None):
 
 @app.post("/token")
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = authenticate_user(fake_users_db, form_data.username, form_data.password)
+    user = authenticate_user(form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -74,7 +65,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
             headers={"WWW-Authenticate": "Bearer"},
         )
     # Здесь мы создаем JWT-токен с данными пользователя
-    access_token = create_access_token(user["email"])
+    access_token = create_access_token(user["username"])
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -82,16 +73,54 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 async def read_users_me(token: str = Depends(oauth2_scheme)):
     try:
         payload = jwt.decode(token, secret_key, algorithms=["HS256"])
-        email = payload.get("sub")
-        if email is None:
+        username = payload.get("sub")
+        if username is None:
             raise HTTPException(status_code=401, detail="Invalid token")
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token has expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
-    return {"email": email}
+    db_connection = psycopg2.connect(dbname='asocdb',     
+                                    user='asocuser',
+                                    password='asocpass',     # Change and to vault
+                                    host='asoc-pgsql',
+                                    port=5432)
+    cur = db_connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur.execute("SELECT * FROM users WHERE username = %s ORDER BY disabled desc", (username,))
+    user = cur.fetchone()
+    cur.close()
+    if not user:
+        return {"error": 'No such user'}
+    return {'username': user['username'], 'full_name': user['full_name'], 'email': user['email'], 'hashed_password': user['hashed_password'], 'disabled': user['disabled']}
 
 
-@app.post("/token")
+@app.get("/hash/{password}")
 async def hash_password(password: str):   # Debug
     return {"hash": pwd_context.hash(password)}
+
+
+@app.get("/user_from_db/{username}")
+async def user_from_db(username: str, token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+        actor_username = payload.get("sub")
+        if actor_username is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        db_connection = psycopg2.connect(dbname='asocdb',     
+                                    user='asocuser',
+                                    password='asocpass',     # Change and to vault
+                                    host='asoc-pgsql',
+                                    port=5432)
+        cur = db_connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cur.execute("SELECT * FROM users WHERE username = %s ORDER BY disabled desc", (username,))
+        user = cur.fetchone()
+        cur.close()
+        if not user:
+            return {"error": 'No such user'}
+        return {'username': user['username'], 'full_name': user['full_name'], 'email': user['email'], 'hashed_password': user['hashed_password'], 'disabled': user['disabled']}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    except (Exception, Error) as error:
+        return {"error": error}
