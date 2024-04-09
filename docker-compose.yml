@@ -1,0 +1,10 @@
+version: '3.4'
+
+services:
+  asoc:
+    image: asoc
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    ports:
+      - 8080:8080
