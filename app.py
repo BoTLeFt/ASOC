@@ -1,10 +1,11 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from passlib.context import CryptContext
 import jwt
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
 import asyncpg
+import json
 
 
 app = FastAPI()
@@ -113,3 +114,46 @@ async def user_from_db(username: str, token: str = Depends(oauth2_scheme)):
         raise HTTPException(status_code=401, detail="Invalid token")
     except (Exception, Error) as error:
         return {"error": error}
+    
+
+# Ручка для загрузки данных JSON в базу данных
+@app.post("/upload_report/")
+async def upload_report(json_data: dict, token: str = Depends(oauth2_scheme)): 
+    try:
+        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+        actor_username = payload.get("sub")
+        if actor_username is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        report_json = json.dumps(json_data)
+        return {
+            "status": "ok",
+            "vulnerabilities": json_data['vulnerabilities']
+        }
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception:
+        raise HTTPException(status_code=404, detail="Send in json")
+    
+
+# Ручка для загрузки файла
+@app.post("/upload_file/")
+async def upload_file(file: UploadFile = File(...), token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+        actor_username = payload.get("sub")
+        if actor_username is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        contents = await file.read()
+        json_dict = json.loads(contents)
+        print(json_dict)
+        return {"filename": file.filename, "json_dict": json_dict}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    except Exception:
+        raise HTTPException(status_code=404, detail="Send in json")
+    except Exception as e:
+        raise HTTPException(status_code=404, detail="Attach json file")
