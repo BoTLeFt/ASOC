@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Защищенная страница</title>
+</head>
+<body>
+    <h1>Защищенная страница</h1>
+    <div id="user-info"></div>
+
+    <script>
+        // Функция для получения токена из localStorage
+        function getAccessToken() {
+            return localStorage.getItem('access_token');
+        }
+
+        // Проверяем, есть ли токен в localStorage
+        var token = getAccessToken();
+        if (!token) {
+            alert('Токен не найден. Перенаправляем на страницу аутентификации.');
+            window.location.href = '/login.html'; // Перенаправляем на страницу аутентификации
+        }
+
+        // Отправляем GET-запрос на сервер с токеном в заголовке Authorization
+        fetch('http://localhost:8080/users/me', {
+            method: 'GET',
+            headers: {
+                'Authorization': 'Bearer ' + token
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Ошибка при получении данных пользователя');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Выводим полученные данные на страницу
+            var userInfoDiv = document.getElementById('user-info');
+            userInfoDiv.innerHTML = '<h2>Данные пользователя:</h2>';
+            userInfoDiv.innerHTML += '<p>Email: ' + data.email + '</p>';
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+            // Ваш код для обработки ошибки
+        });
+    </script>
+</body>
+</html>

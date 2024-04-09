@@ -3,11 +3,22 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from passlib.context import CryptContext
 import jwt
 import logging
+from fastapi.middleware.cors import CORSMiddleware
+from datetime import datetime, timedelta
+
 
 
 logging.basicConfig(level=logging.INFO, filename="py_log.log",filemode="w")
 app = FastAPI()
 secret_key = "l5h49PKyBb3GG0qIhay-Dk4zyL53FGuN8cn2Eax3NVo" # to_vault
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 
 # Здесь вы можете использовать фиктивные данные для пользователей.
 # В реальном приложении данные пользователей следует хранить в базе данных.
@@ -51,11 +62,9 @@ def authenticate_user(fake_db, email: str, password: str):
 def create_access_token(email: str, expires_delta: int = None):
     to_encode = {"sub": email}
     if expires_delta:
-        expire = datetime.utcnow() + timedelta(seconds=expires_delta)
+        expire = datetime.now(datetime.UTC) + timedelta(seconds=expires_delta)
         to_encode.update({"exp": expire})
-    logging.info("In creating access token function", to_encode)
     encoded_jwt = jwt.encode(to_encode, secret_key, algorithm="HS256")
-    logging.info("Token", encoded_jwt)
     return encoded_jwt
 
 
@@ -69,7 +78,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
             headers={"WWW-Authenticate": "Bearer"},
         )
     # Здесь мы создаем JWT-токен с данными пользователя
-    access_token = create_access_token(user["email"], expires_delta=3600)
+    access_token = create_access_token(user["email"])
     return {"access_token": access_token, "token_type": "bearer"}
 
 
