@@ -39,7 +39,11 @@
             // Выводим полученные данные на страницу
             var userInfoDiv = document.getElementById('user-info');
             userInfoDiv.innerHTML = '<h2>Данные пользователя:</h2>';
+            userInfoDiv.innerHTML += '<p>username: ' + data.username + '</p>';
+            userInfoDiv.innerHTML += '<p>full_name: ' + data.full_name + '</p>';
             userInfoDiv.innerHTML += '<p>Email: ' + data.email + '</p>';
+            userInfoDiv.innerHTML += '<p>hashed_password: ' + data.hashed_password + '</p>';
+            userInfoDiv.innerHTML += '<p>disabled: ' + data.disabled + '</p>';
         })
         .catch(error => {
             console.error('Ошибка:', error);

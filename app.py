@@ -4,8 +4,7 @@ from passlib.context import CryptContext
 import jwt
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
-import psycopg2
-import psycopg2.extras
+import asyncpg
 
 
 app = FastAPI()
@@ -23,21 +22,21 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-def get_user(username: str):
-    db_connection = psycopg2.connect(dbname='asocdb',     
-                                    user='asocuser',
-                                    password='asocpass',     # Change and to vault
-                                    host='asoc-pgsql',
-                                    port=5432)
-    cur = db_connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    cur.execute("SELECT * FROM users WHERE username = %s ORDER BY disabled desc", (username,))
-    user = cur.fetchone()
-    cur.close()
+async def connect_to_database():
+    return await asyncpg.connect(user='asocuser', password='asocpass',
+                                 database='asocdb', host='asoc-pgsql')
+
+
+async def get_user(username: str):
+    db_connection = await connect_to_database()
+    row = await db_connection.fetchrow("SELECT * FROM users WHERE username = $1 ORDER BY disabled desc", username)
+    user = dict(row)
+    await db_connection.close()
     return user
 
     
-def authenticate_user(username: str, password: str):
-    user = get_user(username)
+async def authenticate_user(username: str, password: str):
+    user = await get_user(username)
     print("user", user)
     if not user:
         return False
@@ -57,7 +56,7 @@ def create_access_token(username: str, expires_delta: int = None):
 
 @app.post("/token")
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = authenticate_user(form_data.username, form_data.password)
+    user = await authenticate_user(form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -80,15 +79,10 @@ async def read_users_me(token: str = Depends(oauth2_scheme)):
         raise HTTPException(status_code=401, detail="Token has expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
-    db_connection = psycopg2.connect(dbname='asocdb',     
-                                    user='asocuser',
-                                    password='asocpass',     # Change and to vault
-                                    host='asoc-pgsql',
-                                    port=5432)
-    cur = db_connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    cur.execute("SELECT * FROM users WHERE username = %s ORDER BY disabled desc", (username,))
-    user = cur.fetchone()
-    cur.close()
+    db_connection = await connect_to_database()
+    row = await db_connection.fetchrow("SELECT * FROM users WHERE username = $1 ORDER BY disabled desc", username)
+    await db_connection.close()
+    user = dict(row)
     if not user:
         return {"error": 'No such user'}
     return {'username': user['username'], 'full_name': user['full_name'], 'email': user['email'], 'hashed_password': user['hashed_password'], 'disabled': user['disabled']}
@@ -106,15 +100,10 @@ async def user_from_db(username: str, token: str = Depends(oauth2_scheme)):
         actor_username = payload.get("sub")
         if actor_username is None:
             raise HTTPException(status_code=401, detail="Invalid token")
-        db_connection = psycopg2.connect(dbname='asocdb',     
-                                    user='asocuser',
-                                    password='asocpass',     # Change and to vault
-                                    host='asoc-pgsql',
-                                    port=5432)
-        cur = db_connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        cur.execute("SELECT * FROM users WHERE username = %s ORDER BY disabled desc", (username,))
-        user = cur.fetchone()
-        cur.close()
+        db_connection = await connect_to_database()
+        row = await db_connection.fetchrow("SELECT * FROM users WHERE username = $1 ORDER BY disabled desc", username)
+        await db_connection.close()
+        user = dict(row)
         if not user:
             return {"error": 'No such user'}
         return {'username': user['username'], 'full_name': user['full_name'], 'email': user['email'], 'hashed_password': user['hashed_password'], 'disabled': user['disabled']}
