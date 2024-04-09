@@ -46,10 +46,6 @@ def get_user(email: str):
         return user_dict
     
 
-def hash_password(password: str):   # For register
-    return pwd_context.hash(password)
-
-
 def authenticate_user(fake_db, email: str, password: str):
     user = get_user(email)
     if not user:
@@ -94,3 +90,8 @@ async def read_users_me(token: str = Depends(oauth2_scheme)):
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
     return {"email": email}
+
+
+@app.post("/token")
+async def hash_password(password: str):   # Debug
+    return {"hash": pwd_context.hash(password)}

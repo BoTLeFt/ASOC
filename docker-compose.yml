@@ -15,11 +15,14 @@ services:
       dockerfile: frontend/Dockerfile
     ports:
       - 80:80
-  postgres:
-    image: postgres:14.8-alpine3.18
+  asoc-pgsql:
+    image: asoc-pgsql
     environment:
       POSTGRES_DB: "asocdb"
       POSTGRES_USER: "asocuser"
       POSTGRES_PASSWORD: "asocpass"
+    build:
+      context: .
+      dockerfile: postgresql/Dockerfile
     ports:
       - "5432:5432"
