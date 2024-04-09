@@ -8,3 +8,18 @@ services:
       dockerfile: ./Dockerfile
     ports:
       - 8080:8080
+  asoc-front:
+    image: asoc-front
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - 80:80
+  postgres:
+    image: postgres:14.8-alpine3.18
+    environment:
+      POSTGRES_DB: "asocdb"
+      POSTGRES_USER: "asocuser"
+      POSTGRES_PASSWORD: "asocpass"
+    ports:
+      - "5432:5432"
