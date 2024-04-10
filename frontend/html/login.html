@@ -1,54 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Аутентификация</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login Form</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <h1>Войти</h1>
+  <div class="container">
     <form id="login-form">
-        <label for="username">Имя пользователя:</label><br>
-        <input type="text" id="username" name="username"><br>
-        <label for="password">Пароль:</label><br>
-        <input type="password" id="password" name="password"><br><br>
-        <button type="submit">Войти</button>
+      <h2>Login</h2>
+      <div class="input-group">
+        <input type="text" id="username" placeholder="Username">
+      </div>
+      <div class="input-group">
+        <input type="password" id="password" placeholder="Password">
+      </div>
+      <button type="submit" id="login-btn">Login</button>
     </form>
+  </div>
 
-    <script>
-        document.getElementById("login-form").addEventListener("submit", function(event) {
-            event.preventDefault(); // Предотвращаем отправку формы по умолчанию
-
-            // Получаем значения из формы
-            var username = document.getElementById("username").value;
-            var password = document.getElementById("password").value;
-
-            // Отправляем POST-запрос на сервер для получения токена
-            let response = fetch('http://localhost:8080/token', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: 'grant_type=&username=' + encodeURIComponent(username) + '&password=' + encodeURIComponent(password) + '&scope=&client_id=&client_secret='
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Ошибка при получении токена');
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log('Токен успешно получен:', data.access_token);
-                // Сохраняем токен в локальном хранилище
-                localStorage.setItem('access_token', data.access_token);
-                // Перенаправляем пользователя на другую страницу
-                window.location.href = '/user.html'; // Замените на вашу страницу
-            })
-            .catch(error => {
-                console.error('Ошибка:', error);
-                // Ваш код для обработки ошибки
-            });
-        });
-    </script>
+  <script src="script.js"></script>
 </body>
 </html>
