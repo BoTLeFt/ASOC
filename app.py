@@ -6,6 +6,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
 import asyncpg
 import json
+from pydantic import BaseModel
+
+class StatusChangeRequest(BaseModel):
+    matchBasedId: str
+    status: str
 
 
 app = FastAPI()
@@ -116,27 +121,6 @@ async def user_from_db(username: str, token: str = Depends(oauth2_scheme)):
         return {"error": error}
     
 
-# Ручка для загрузки данных JSON в базу данных
-@app.post("/upload_report/")
-async def upload_report(json_data: dict, token: str = Depends(oauth2_scheme)): 
-    try:
-        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
-        actor_username = payload.get("sub")
-        if actor_username is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        report_json = json.dumps(json_data)
-        return {
-            "status": "ok",
-            "vulnerabilities": json_data['vulnerabilities']
-        }
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token has expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    except Exception:
-        raise HTTPException(status_code=404, detail="Send in json")
-    
-
 # Ручка для загрузки файла
 @app.post("/upload_file/")
 async def upload_file(file: UploadFile = File(...), token: str = Depends(oauth2_scheme)):
@@ -145,15 +129,73 @@ async def upload_file(file: UploadFile = File(...), token: str = Depends(oauth2_
         actor_username = payload.get("sub")
         if actor_username is None:
             raise HTTPException(status_code=401, detail="Invalid token")
+        
+        
+        db_connection = await connect_to_database()
+
         contents = await file.read()
-        json_dict = json.loads(contents)
-        print(json_dict)
-        return {"filename": file.filename, "json_dict": json_dict}
+        author, commit_hash = file.filename.split("_")
+        results = json.loads(contents)["runs"][0]["results"]
+        
+        vulns_to_bd = []
+
+        for result in results:
+            vuln = dict()
+            vuln["matchBasedId"] = result["fingerprints"]["matchBasedId/v1"]
+            vuln["uri_line"] = result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"]+":"+str(result["locations"][0]["physicalLocation"]["region"]["startLine"])
+            vuln["collumns"] = str(result["locations"][0]["physicalLocation"]["region"]["startColumn"]) + ":" + str(result["locations"][0]["physicalLocation"]["region"]["endColumn"])
+            vuln["code_line"] = result["locations"][0]["physicalLocation"]["region"]["snippet"]["text"].strip()
+            vuln["commit_hash"] = commit_hash
+            vuln["author"] = author
+            vuln["ruleId"] = result["ruleId"]
+            vuln["message"] = result["message"]["text"]
+            vuln["timestamp"] = str(datetime.now())
+            vuln["status"] = "created"
+            vulns_to_bd.append(vuln)
+            row = await db_connection.fetchrow("SELECT * FROM sast_vulns WHERE matchBasedId = $1 or code_line = $2", vuln["matchBasedId"], vuln["code_line"])
+            if row:
+                print("Dublicate", row)
+                continue
+            await db_connection.execute('''INSERT INTO sast_vulns(matchBasedId, uri_line, collumns, code_line, commit_hash, author, ruleId, message, timestamp, status) 
+                               VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)''', vuln["matchBasedId"], vuln["uri_line"], vuln["collumns"], vuln["code_line"], vuln["commit_hash"], vuln["author"], vuln["ruleId"], vuln["message"], vuln["timestamp"], vuln["status"])
+
+        await db_connection.close()
+        to_return = ""
+        for vuln in vulns_to_bd:
+            for key in vuln.keys():
+                if to_return:
+                    to_return+=","
+                to_return+=str("\'"+key+"\'"+":"+"\'"+vuln[key]+"\'")
+        return {to_return}
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token has expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
     except Exception:
-        raise HTTPException(status_code=404, detail="Send in json")
-    except Exception as e:
-        raise HTTPException(status_code=404, detail="Attach json file")
+        raise HTTPException(status_code=404, detail="Send valid file")
+
+
+# Ручка для смены статуса уязвимости
+@app.post("/change_status")
+async def change_status(request_data: StatusChangeRequest): 
+    try:
+        db_connection = await connect_to_database()
+        await db_connection.execute('''UPDATE sast_vulns SET status = $1 WHERE matchBasedId = $2;''', request_data.status, request_data.matchBasedId)
+        await db_connection.close()
+        return {
+            "status": "changed"
+        }
+    except Exception:
+        raise HTTPException(status_code=404, detail="Something wrong")
+    
+
+# Ручка для получения данных из бд
+@app.get("/data")
+async def data(): 
+    try:
+        db_connection = await connect_to_database()
+        data = await db_connection.fetch("SELECT * FROM sast_vulns")
+        await db_connection.close()
+        return data
+    except Exception:
+        raise HTTPException(status_code=404, detail="Something wrong")

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Data Table</title>
+  <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.25/css/jquery.dataTables.min.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      margin: 0;
+      padding: 0;
+    }
+    #container {
+      max-width: 1200px;
+      margin: 20px auto;
+      padding: 20px;
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      text-align: center;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    th:first-child, td:first-child {
+      border-left: none;
+    }
+    th:last-child, td:last-child {
+      border-right: none;
+    }
+    .dataTables_wrapper {
+      padding: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="container">
+    <h1>Vuln Table</h1>
+    <table id="dataTable">
+        <thead>
+            <tr>
+                <th>matchbasedid</th>
+                <th>uri_line</th>
+                <th>collumns</th>
+                <th>code_line</th>
+                <th>commit_hash</th>
+                <th>author</th>
+                <th>ruleid</th>
+                <th>message</th>
+                <th>timestamp</th>
+                <th>status</th>
+                <th>Change Status</th>
+            </tr>
+        </thead>
+        <tbody>
+        <!-- Данные будут добавлены с помощью JavaScript -->
+        </tbody>
+    </table>
+</div>
+
+<script>
+  // Получаем данные из API и обновляем таблицу
+  async function fetchData() {
+    try {
+      const response = await fetch('http://host.docker.internal:8080/data');
+      const data = await response.json();
+      const tableBody = document.querySelector('#dataTable tbody');
+
+      // Очищаем таблицу перед обновлением
+      tableBody.innerHTML = '';
+
+      // Создаем строки таблицы с полученными данными
+      data.forEach(item => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${item.matchbasedid}</td>
+          <td>${item.uri_line}</td>
+          <td>${item.collumns}</td>
+          <td>${item.code_line}</td>
+          <td>${item.commit_hash}</td>
+          <td>${item.author}</td>
+          <td>${item.ruleid}</td>
+          <td>${item.message}</td>
+          <td>${item.timestamp}</td>
+          <td>${item.status}</td>
+          <td>
+            <select onchange="changeStatus(this.value, '${item.matchbasedid}')">
+              <option value="created">Created</option>
+              <option value="True Positive">True Positive</option>
+              <option value="Need review">Need Review</option>
+              <option value="False Positive">False Positive</option>
+              <option value="Fixed">Fixed</option>
+            </select>
+          </td>
+        `;
+        tableBody.appendChild(row);
+      });
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    }
+  }
+
+  // Функция для изменения статуса
+  async function changeStatus(status, matchBasedId) {
+    try {
+      const response = await fetch('http://host.docker.internal:8080/change_status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          matchBasedId,
+          status
+        })
+      });
+      const data = await response.json();
+      console.log('Status changed:', data);
+    } catch (error) {
+      console.error('Error changing status:', error);
+    }
+  }
+
+  // Вызываем функцию для получения и отображения данных
+  fetchData();
+</script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.datatables.net/1.10.25/js/jquery.dataTables.min.js"></script>
+<script>
+  $(document).ready(function() {
+    $('#dataTable').DataTable({
+      lengthMenu: [10, 25, 50, 100]
+    });
+  });
+</script>
+
+</body>
+</html>

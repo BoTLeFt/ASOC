@@ -9,6 +9,8 @@ services:
       dockerfile: ./Dockerfile
     ports:
       - 8080:8080
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
   asoc-front:
     image: asoc-front
     container_name: asoc-front
@@ -17,6 +19,8 @@ services:
       dockerfile: frontend/Dockerfile
     ports:
       - 80:80
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
   asoc-pgsql:
     image: asoc-pgsql
     container_name: asoc-pgsql
@@ -31,3 +35,5 @@ services:
       dockerfile: postgresql/Dockerfile
     ports:
       - "5432:5432"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
