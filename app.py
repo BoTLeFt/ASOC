@@ -177,25 +177,41 @@ async def upload_file(file: UploadFile = File(...), token: str = Depends(oauth2_
 
 # Ручка для смены статуса уязвимости
 @app.post("/change_status")
-async def change_status(request_data: StatusChangeRequest): 
+async def change_status(request_data: StatusChangeRequest, token: str = Depends(oauth2_scheme)): 
     try:
+        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+        actor_username = payload.get("sub")
+        if actor_username is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        
         db_connection = await connect_to_database()
-        await db_connection.execute('''UPDATE sast_vulns SET status = $1 WHERE matchBasedId = $2;''', status, matchBasedId)
+        await db_connection.execute('''UPDATE sast_vulns SET status = $1 WHERE matchBasedId = $2;''', request_data.status, request_data.matchBasedId)
         await db_connection.close()
         return {
             "status": "changed"
         }
-    except Exception:
-        raise HTTPException(status_code=404, detail="Something wrong")
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
     
 
 # Ручка для получения данных из бд
 @app.get("/data")
-async def data(): 
+async def data(token: str = Depends(oauth2_scheme)): 
     try:
+        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+        actor_username = payload.get("sub")
+        if actor_username is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        
         db_connection = await connect_to_database()
         data = await db_connection.fetch("SELECT * FROM sast_vulns")
         await db_connection.close()
         return data
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
     except Exception:
         raise HTTPException(status_code=404, detail="Something wrong")

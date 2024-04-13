@@ -97,7 +97,23 @@
   // Получаем данные из API и обновляем таблицу
   async function fetchData() {
     try {
-      const response = await fetch('http://host.docker.internal:8080/data');
+      // Функция для получения токена из localStorage
+      function getAccessToken() {
+        return localStorage.getItem('access_token');
+      }
+
+      // Проверяем, есть ли токен в localStorage
+      var token = getAccessToken();
+      if (!token) {
+        alert('Токен не найден. Перенаправляем на страницу аутентификации.');
+        window.location.href = '/login.html'; // Перенаправляем на страницу аутентификации
+      }
+      const response = await fetch('http://host.docker.internal:8080/data', {
+            method: 'GET',
+            headers: {
+                'Authorization': 'Bearer ' + token
+            }
+      });
       const data = await response.json();
       const tableBody = document.querySelector('#dataTable tbody');
 
@@ -138,10 +154,22 @@
   // Функция для изменения статуса
   async function changeStatus(status, matchBasedId) {
     try {
+      // Функция для получения токена из localStorage
+      function getAccessToken() {
+        return localStorage.getItem('access_token');
+      }
+
+      // Проверяем, есть ли токен в localStorage
+      var token = getAccessToken();
+      if (!token) {
+        alert('Токен не найден. Перенаправляем на страницу аутентификации.');
+        window.location.href = '/login.html'; // Перенаправляем на страницу аутентификации
+      }
       const response = await fetch('http://host.docker.internal:8080/change_status', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
         },
         body: JSON.stringify({
           matchBasedId,

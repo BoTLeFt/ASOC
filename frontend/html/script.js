@@ -32,7 +32,7 @@ document.getElementById('login-form').addEventListener('submit', function(event)
         // Сохраняем токен в локальном хранилище
         localStorage.setItem('access_token', data.access_token);
         // Перенаправляем пользователя на другую страницу
-        window.location.href = '/user.html'; // Замените на вашу страницу
+        window.location.href = '/table.html'; // Замените на вашу страницу
     })
     .catch(error => {
         console.error('Ошибка:', error);
