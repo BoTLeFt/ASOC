@@ -180,7 +180,7 @@ async def upload_file(file: UploadFile = File(...), token: str = Depends(oauth2_
 async def change_status(request_data: StatusChangeRequest): 
     try:
         db_connection = await connect_to_database()
-        await db_connection.execute('''UPDATE sast_vulns SET status = $1 WHERE matchBasedId = $2;''', request_data.status, request_data.matchBasedId)
+        await db_connection.execute('''UPDATE sast_vulns SET status = $1 WHERE matchBasedId = $2;''', status, matchBasedId)
         await db_connection.close()
         return {
             "status": "changed"

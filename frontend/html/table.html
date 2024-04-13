@@ -13,12 +13,18 @@
       padding: 0;
     }
     #container {
-      max-width: 1200px;
+      max-width: 1920px;
       margin: 20px auto;
       padding: 20px;
       background-color: #fff;
       border-radius: 8px;
       box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      overflow: auto;
+      width: 1920px;
+      height: 900px;
+      max-height: 900px;
+      min-height: 900px;
+      position: relative;
     }
     h1 {
       text-align: center;
@@ -26,6 +32,10 @@
     table {
       border-collapse: collapse;
       width: 100%;
+      overflow: auto;
+      height: 300px;
+      max-height: 300px;
+      min-height: 300px;
     }
     th, td {
       border: 1px solid #ddd;
@@ -44,6 +54,17 @@
     .dataTables_wrapper {
       padding: 10px;
     }
+    .th_matchbasedid_col {
+      width: 100px;
+      max-width: 100px;
+      min-width: 100px;
+      word-break: break-all;
+    }
+    .tr_header {
+      position: sticky;
+      top: -20px;
+      left: 0;
+    }
   </style>
 </head>
 <body>
@@ -52,8 +73,8 @@
     <h1>Vuln Table</h1>
     <table id="dataTable">
         <thead>
-            <tr>
-                <th>matchbasedid</th>
+            <tr class="tr_header">
+                <th class="th_matchbasedid_col">matchbasedid</th>
                 <th>uri_line</th>
                 <th>collumns</th>
                 <th>code_line</th>
@@ -87,7 +108,7 @@
       data.forEach(item => {
         const row = document.createElement('tr');
         row.innerHTML = `
-          <td>${item.matchbasedid}</td>
+          <td class="th_matchbasedid_col">${item.matchbasedid}</td>
           <td>${item.uri_line}</td>
           <td>${item.collumns}</td>
           <td>${item.code_line}</td>
@@ -142,7 +163,10 @@
 <script>
   $(document).ready(function() {
     $('#dataTable').DataTable({
-      lengthMenu: [10, 25, 50, 100]
+      lengthMenu: [10, 25, 50, 100],
+      search: {
+        return: true
+      }
     });
   });
 </script>
