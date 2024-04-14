@@ -136,6 +136,7 @@
           <td>${item.status}</td>
           <td>
             <select onchange="changeStatus(this.value, '${item.matchbasedid}')">
+              <option value="" selected disabled hidden>Change status</option>
               <option value="created">Created</option>
               <option value="True Positive">True Positive</option>
               <option value="Need review">Need Review</option>
