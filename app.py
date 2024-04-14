@@ -152,7 +152,7 @@ async def upload_file(file: UploadFile = File(...), token: str = Depends(oauth2_
             vuln["timestamp"] = str(datetime.now())
             vuln["status"] = "created"
             vulns_to_bd.append(vuln)
-            row = await db_connection.fetchrow("SELECT * FROM sast_vulns WHERE matchBasedId = $1 or code_line = $2", vuln["matchBasedId"], vuln["code_line"])
+            row = await db_connection.fetchrow("SELECT * FROM sast_vulns WHERE ruleid = $1 and (matchBasedId = $2 or code_line = $3)", vuln["ruleId"], vuln["matchBasedId"], vuln["code_line"])
             if row:
                 print("Dublicate", row)
                 continue
