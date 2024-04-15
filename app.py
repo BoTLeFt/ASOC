@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, BackgroundTasks
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from passlib.context import CryptContext
 import jwt
@@ -11,6 +11,10 @@ from pydantic import BaseModel
 class StatusChangeRequest(BaseModel):
     matchBasedId: str
     status: str
+
+class NotificationStatusChangeRequest(BaseModel):
+    matchBasedId: str
+    notification_status: str
 
 
 app = FastAPI()
@@ -58,6 +62,36 @@ def create_access_token(username: str, expires_delta: int = None):
         to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, secret_key, algorithm="HS256")
     return encoded_jwt
+    
+
+async def send_message_to_user(email, message, button_payload):
+    # Здесь необходимо вставить логику отправки сообщения в Mattermost
+    # Например, используя Mattermost API или Mattermost Python SDK
+    # Это может потребовать аутентификации, получения токена и т.д.
+    # Важно сформировать корректный запрос с текстом сообщения и кнопками.
+    # Пример отправки сообщения через Mattermost API:
+    url = "http://host.docker.internal:8065/api/v4/posts"
+    headers = {
+        "Authorization": "Bearer your_access_token",   # Add smthing
+        "Content-Type": "application/json"
+    }
+    data = {
+        "channel_id": "your_channel_id",   # TODO: Make a way to generate channel_id for direct message
+        "message": message,
+        "props": {
+            "attachments": [
+                {
+                    "actions": [
+                        {"name": "Подтверждаю", "integration": {"url": "http://yourserver.com/change-status-by-bot", "context": {"action": "confirm", "payload": button_payload}}},
+                        {"name": "Это ошибка", "integration": {"url": "http://yourserver.com/change-status-by-bot", "context": {"action": "error", "payload": button_payload}}}
+                    ]
+                }
+            ]
+        }
+    }
+    response = requests.post(url, headers=headers, json=data)
+    if response.status_code != 200:
+        raise HTTPException(status_code=response.status_code, detail="Failed to send message to Mattermost")
 
 
 @app.post("/token")
@@ -151,13 +185,14 @@ async def upload_file(file: UploadFile = File(...), token: str = Depends(oauth2_
             vuln["message"] = result["message"]["text"]
             vuln["timestamp"] = str(datetime.now())
             vuln["status"] = "created"
+            vuln["notification_status"] = "Need_to_send"
             vulns_to_bd.append(vuln)
             row = await db_connection.fetchrow("SELECT * FROM sast_vulns WHERE ruleid = $1 and (matchBasedId = $2 or code_line = $3)", vuln["ruleId"], vuln["matchBasedId"], vuln["code_line"])
             if row:
                 print("Dublicate", row)
                 continue
-            await db_connection.execute('''INSERT INTO sast_vulns(matchBasedId, uri_line, collumns, code_line, commit_hash, author, ruleId, message, timestamp, status) 
-                               VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)''', vuln["matchBasedId"], vuln["uri_line"], vuln["collumns"], vuln["code_line"], vuln["commit_hash"], vuln["author"], vuln["ruleId"], vuln["message"], vuln["timestamp"], vuln["status"])
+            await db_connection.execute('''INSERT INTO sast_vulns(matchBasedId, uri_line, collumns, code_line, commit_hash, author, ruleId, message, timestamp, status, notification_status) 
+                               VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)''', vuln["matchBasedId"], vuln["uri_line"], vuln["collumns"], vuln["code_line"], vuln["commit_hash"], vuln["author"], vuln["ruleId"], vuln["message"], vuln["timestamp"], vuln["status"], vuln["notification_status"])
 
         await db_connection.close()
         to_return = ""
@@ -215,3 +250,55 @@ async def data(token: str = Depends(oauth2_scheme)):
         raise HTTPException(status_code=401, detail="Invalid token")
     except Exception:
         raise HTTPException(status_code=404, detail="Something wrong")
+    
+
+# Ручка для смены статуса уязвимости
+@app.post("/change_notification_status")
+async def change_status(request_data: NotificationStatusChangeRequest, token: str = Depends(oauth2_scheme)): 
+    try:
+        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+        actor_username = payload.get("sub")
+        if actor_username is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        
+        db_connection = await connect_to_database()
+        await db_connection.execute('''UPDATE sast_vulns SET notification_status = $1 WHERE matchBasedId = $2;''', request_data.notification_status, request_data.matchBasedId)
+        await db_connection.close()
+        return {
+            "status": "changed"
+        }
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
+# Ручка для отправки нотификации по всем уязвимостям, где статус - Need_to_send
+@app.get("/send-notifications")
+async def fetch_and_send(background_tasks: BackgroundTasks, token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+        actor_username = payload.get("sub")
+        if actor_username is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        
+        db_connection = await connect_to_database()
+        vuln_to_send = await db_connection.fetch('''SELECT * FROM sast_vulns WHERE notification_status='Need_to_send';''')
+        await db_connection.close()
+        for row in vuln_to_send:
+            email = row["author"]
+            message = row["message"]
+            button_payload = {"matchBasedId": row["matchBasedId"]}
+            background_tasks.add_task(send_message_to_user, email, message, button_payload)
+        return {"message": "Messages sent to users"}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    
+
+# Ручка для бота в Mattermost
+@app.post("/change-status-by-bot")
+async def change_status_by_bot(action: str, payload: dict):
+    # TODO: Add logic to change status with validation
+    return {"action": action, "payload": payload}

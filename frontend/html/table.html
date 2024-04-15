@@ -84,7 +84,9 @@
                 <th>message</th>
                 <th>timestamp</th>
                 <th>status</th>
+                <th>notification_status</th>
                 <th>Change Status</th>
+                <th>Change Notification Status</th>
             </tr>
         </thead>
         <tbody>
@@ -134,6 +136,7 @@
           <td>${item.message}</td>
           <td>${item.timestamp}</td>
           <td>${item.status}</td>
+          <td>${item.notification_status}</td>
           <td>
             <select onchange="changeStatus(this.value, '${item.matchbasedid}')">
               <option value="" selected disabled hidden>Change status</option>
@@ -142,6 +145,15 @@
               <option value="Need review">Need Review</option>
               <option value="False Positive">False Positive</option>
               <option value="Fixed">Fixed</option>
+            </select>
+          </td>
+          <td>
+            <select onchange="changeNotificationStatus(this.value, '${item.matchbasedid}')">
+              <option value="" selected disabled hidden>Change status</option>
+              <option value="created">Created</option>
+              <option value="Need_to_send">Need to send</option>
+              <option value="Sended">Sended</option>
+              <option value="Canceled">Canceled</option>
             </select>
           </td>
         `;
@@ -175,6 +187,37 @@
         body: JSON.stringify({
           matchBasedId,
           status
+        })
+      });
+      const data = await response.json();
+      console.log('Status changed:', data);
+    } catch (error) {
+      console.error('Error changing status:', error);
+    }
+  }
+  // Функция для изменения статуса
+  async function changeNotificationStatus(notification_status, matchBasedId) {
+    try {
+      // Функция для получения токена из localStorage
+      function getAccessToken() {
+        return localStorage.getItem('access_token');
+      }
+
+      // Проверяем, есть ли токен в localStorage
+      var token = getAccessToken();
+      if (!token) {
+        alert('Токен не найден. Перенаправляем на страницу аутентификации.');
+        window.location.href = '/login.html'; // Перенаправляем на страницу аутентификации
+      }
+      const response = await fetch('http://host.docker.internal:8080/change_notification_status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({
+          matchBasedId,
+          notification_status
         })
       });
       const data = await response.json();
