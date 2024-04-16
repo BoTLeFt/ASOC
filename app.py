@@ -65,7 +65,7 @@ def create_access_token(username: str, expires_delta: int = None):
     return encoded_jwt
     
 
-async def send_message_to_user(author, message, button_payload):
+async def send_message_to_user(author, message, button_payload, matchbasedid):
     headers = {
         "Authorization": "bearer hi8x8dw4gfgzzjujzb4zuf3bfh",   # security_bot
         "Content-Type": "application/json"
@@ -87,13 +87,28 @@ async def send_message_to_user(author, message, button_payload):
     
     data = {
         "channel_id": channel_id,
-        "message": message,
         "props": {
             "attachments": [
                 {
+                    "color": "#FF8000",
+                    "title": "Найдена уязвимость в коде!",
+                    "title_link": "http://host.docker.internal:90/projects/SECISSUE/issues/?filter=allopenissues",
+                    "text": message,
+                    "fields": [
+                    {
+                    "short": False,
+                    "title":"Vulnerability Id",
+                    "value": matchbasedid
+                    },
+                    {
+                    "short": True,
+                    "title":"Критичность",
+                    "value":"Высокая"
+                    },
+                    ],
                     "actions": [
-                        {"name": "Подтверждаю", "integration": {"url": "http://host.docker.internal:8080/change-status-by-bot", "context": {"action": "confirm", "payload": button_payload}}},
-                        {"name": "Это ошибка", "integration": {"url": "http://host.docker.internal:8080/change-status-by-bot", "context": {"action": "error", "payload": button_payload}}}
+                        {"name": "Подтверждаю", "integration": {"url": "http://host.docker.internal:8080/change-status-by-bot", "context": {"action": "True Positive", "payload": button_payload}}},
+                        {"name": "Это ошибка", "integration": {"url": "http://host.docker.internal:8080/change-status-by-bot", "context": {"action": "Need review", "payload": button_payload}}}
                     ]
                 }
             ]
@@ -104,6 +119,9 @@ async def send_message_to_user(author, message, button_payload):
     # TODO: Добавить смену статуса отправляемой коммуникации на "SEND" в бд
     if response.status_code != 201:
         raise HTTPException(status_code=response.status_code, detail="Failed to send message to Mattermost")
+    db_connection = await connect_to_database()
+    await db_connection.execute('''UPDATE sast_vulns SET notification_status = $1 WHERE matchBasedId = $2;''', "Sended", matchbasedid)
+    await db_connection.close()
 
 
 @app.post("/token")
@@ -120,51 +138,9 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-# @app.get("/users/me")
-# async def read_users_me(token: str = Depends(oauth2_scheme)):
-#     try:
-#         payload = jwt.decode(token, secret_key, algorithms=["HS256"])
-#         username = payload.get("sub")
-#         if username is None:
-#             raise HTTPException(status_code=401, detail="Invalid token")
-#     except jwt.ExpiredSignatureError:
-#         raise HTTPException(status_code=401, detail="Token has expired")
-#     except jwt.InvalidTokenError:
-#         raise HTTPException(status_code=401, detail="Invalid token")
-#     db_connection = await connect_to_database()
-#     row = await db_connection.fetchrow("SELECT * FROM users WHERE username = $1 ORDER BY disabled desc", username)
-#     await db_connection.close()
-#     user = dict(row)
-#     if not user:
-#         return {"error": 'No such user'}
-#     return {'username': user['username'], 'full_name': user['full_name'], 'email': user['email'], 'hashed_password': user['hashed_password'], 'disabled': user['disabled']}
-
-
 @app.get("/hash/{password}")
 async def hash_password(password: str):   # Debug
     return {"hash": pwd_context.hash(password)}
-
-
-# @app.get("/user_from_db/{username}")
-# async def user_from_db(username: str, token: str = Depends(oauth2_scheme)):
-#     try:
-#         payload = jwt.decode(token, secret_key, algorithms=["HS256"])
-#         actor_username = payload.get("sub")
-#         if actor_username is None:
-#             raise HTTPException(status_code=401, detail="Invalid token")
-#         db_connection = await connect_to_database()
-#         row = await db_connection.fetchrow("SELECT * FROM users WHERE username = $1 ORDER BY disabled desc", username)
-#         await db_connection.close()
-#         user = dict(row)
-#         if not user:
-#             return {"error": 'No such user'}
-#         return {'username': user['username'], 'full_name': user['full_name'], 'email': user['email'], 'hashed_password': user['hashed_password'], 'disabled': user['disabled']}
-#     except jwt.ExpiredSignatureError:
-#         raise HTTPException(status_code=401, detail="Token has expired")
-#     except jwt.InvalidTokenError:
-#         raise HTTPException(status_code=401, detail="Invalid token")
-#     except (Exception, Error) as error:
-#         return {"error": error}
     
 
 # Ручка для загрузки файла
@@ -298,11 +274,9 @@ async def fetch_and_send(background_tasks: BackgroundTasks, token: str = Depends
         vuln_to_send = await db_connection.fetch('''SELECT * FROM sast_vulns WHERE notification_status='Need_to_send';''')
         await db_connection.close()
         for row in vuln_to_send:
-            author = row["author"]
-            message = row["message"]
             button_payload = {"matchbasedid": row["matchbasedid"]}
             print(row["matchbasedid"])
-            await send_message_to_user(author.split("+")[0].strip().lower(), message, button_payload)
+            await send_message_to_user(row["author"].split("+")[0].strip().lower(), row["message"], button_payload, row["matchbasedid"])
         return {"message": "Messages sent to users"}
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token has expired")
@@ -312,7 +286,21 @@ async def fetch_and_send(background_tasks: BackgroundTasks, token: str = Depends
 
 # Ручка для бота в Mattermost
 @app.post("/change-status-by-bot")
-async def change_status_by_bot(action: str, payload: dict):
+async def change_status_by_bot(data: dict):
     # TODO: Add logic to change status with validation
-    print({"action": action, "payload": payload})
-    return {"action": action, "payload": payload}
+    print(data)
+    matchbasedid = data['context']['payload']['matchbasedid']
+    status = data['context']['action']
+    print({"status": status, "matchbasedid": matchbasedid})
+    if status=="True Positive":
+        db_connection = await connect_to_database()
+        await db_connection.execute('''UPDATE sast_vulns SET status = $1 WHERE matchBasedId = $2;''', status, matchbasedid)
+        await db_connection.close()
+        return {"update": {"props": {"attachments": [{"color": "#99FF99","title": "Спасибо за помощь!","text": "Уязвимость с id **_"+ matchbasedid + "_** теперь имеет статус **" + status+"**. Теперь важно устранить эту уязвимость до выхода ПО в общий доступ. По всем вопросам обращайтесь в команду ИБ."}]}}}
+    elif status=="Need review":
+        db_connection = await connect_to_database()
+        await db_connection.execute('''UPDATE sast_vulns SET status = $1 WHERE matchBasedId = $2;''', status, matchbasedid)
+        await db_connection.close()
+        return {"update": {"props": {"attachments": [{"color": "#004DFF","title": "Спасибо за помощь!","text": "Уязвимость с id **_"+ matchbasedid + "_** теперь имеет статус **" + status+"**. Команда ИБ проверит верность этого решения и в случае чего свяжется с Вами. По всем вопросам обращайтесь в команду ИБ."}]}}}
+    else:
+        raise HTTPException(status_code=450, detail="Not valid status")
