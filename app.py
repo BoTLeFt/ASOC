@@ -65,7 +65,7 @@ def create_access_token(username: str, expires_delta: int = None):
     return encoded_jwt
     
 
-async def send_message_to_user(author, message, button_payload, matchbasedid):
+async def send_message_to_user(author, message, matchbasedid):
     headers = {
         "Authorization": "bearer hi8x8dw4gfgzzjujzb4zuf3bfh",   # security_bot
         "Content-Type": "application/json"
@@ -73,6 +73,7 @@ async def send_message_to_user(author, message, button_payload, matchbasedid):
 
     users = ["security_bot", author]
     usermaps = dict()
+    button_payload = {"matchbasedid": matchbasedid}
     for user in users:
         try:
             userid = requests.post("http://host.docker.internal:8065/api/v4/users/usernames", headers=headers, json=[user]).json()[0]['id']
@@ -118,10 +119,11 @@ async def send_message_to_user(author, message, button_payload, matchbasedid):
     print(response, response.json())
     # TODO: Добавить смену статуса отправляемой коммуникации на "SEND" в бд
     if response.status_code != 201:
-        raise HTTPException(status_code=response.status_code, detail="Failed to send message to Mattermost")
+        return False
     db_connection = await connect_to_database()
     await db_connection.execute('''UPDATE sast_vulns SET notification_status = $1 WHERE matchBasedId = $2;''', "Sended", matchbasedid)
     await db_connection.close()
+    return True
 
 
 @app.post("/token")
@@ -173,12 +175,16 @@ async def upload_file(file: UploadFile = File(...), token: str = Depends(oauth2_
             vuln["message"] = result["message"]["text"]
             vuln["timestamp"] = str(datetime.now())
             vuln["status"] = "created"
-            vuln["notification_status"] = "Need_to_send"
-            vulns_to_bd.append(vuln)
             row = await db_connection.fetchrow("SELECT * FROM sast_vulns WHERE ruleid = $1 and (matchBasedId = $2 or code_line = $3)", vuln["ruleId"], vuln["matchBasedId"], vuln["code_line"])
             if row:
                 print("Dublicate", row)
                 continue
+            flag_of_send = send_message_to_user(vuln["author"], vuln["message"], vuln["matchBasedId"])
+            if flag_of_send:
+                vuln["notification_status"] = "Sended"
+            else:
+                vuln["notification_status"] = "Need_to_send"
+            vulns_to_bd.append(vuln)
             await db_connection.execute('''INSERT INTO sast_vulns(matchBasedId, uri_line, collumns, code_line, commit_hash, author, ruleId, message, timestamp, status, notification_status) 
                                VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)''', vuln["matchBasedId"], vuln["uri_line"], vuln["collumns"], vuln["code_line"], vuln["commit_hash"], vuln["author"], vuln["ruleId"], vuln["message"], vuln["timestamp"], vuln["status"], vuln["notification_status"])
 
@@ -263,7 +269,7 @@ async def change_status(request_data: NotificationStatusChangeRequest, token: st
 
 # Ручка для отправки нотификации по всем уязвимостям, где статус - Need_to_send
 @app.get("/send-notifications")
-async def fetch_and_send(background_tasks: BackgroundTasks, token: str = Depends(oauth2_scheme)):
+async def fetch_and_send(token: str = Depends(oauth2_scheme)):
     try:
         payload = jwt.decode(token, secret_key, algorithms=["HS256"])
         actor_username = payload.get("sub")
@@ -274,9 +280,8 @@ async def fetch_and_send(background_tasks: BackgroundTasks, token: str = Depends
         vuln_to_send = await db_connection.fetch('''SELECT * FROM sast_vulns WHERE notification_status='Need_to_send';''')
         await db_connection.close()
         for row in vuln_to_send:
-            button_payload = {"matchbasedid": row["matchbasedid"]}
             print(row["matchbasedid"])
-            await send_message_to_user(row["author"].split("+")[0].strip().lower(), row["message"], button_payload, row["matchbasedid"])
+            await send_message_to_user(row["author"].split("+")[0].strip().lower(), row["message"], row["matchbasedid"])
         return {"message": "Messages sent to users"}
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token has expired")
