@@ -17,6 +17,11 @@ class NotificationStatusChangeRequest(BaseModel):
     matchBasedId: str
     notification_status: str
 
+class DetailsAddRequest(BaseModel):
+    commit_hash: str
+    project_name: str
+    repo_link: str
+
 
 app = FastAPI()
 secret_key = "l5h49PKyBb3GG0qIhay-Dk4zyL53FGuN8cn2Eax3NVo" # to_vault
@@ -65,7 +70,7 @@ def create_access_token(username: str, expires_delta: int = None):
     return encoded_jwt
     
 
-async def send_message_to_user(author, message, matchbasedid):
+async def send_message_to_user(author, message, matchbasedid, uri, project):
     headers = {
         "Authorization": "bearer hi8x8dw4gfgzzjujzb4zuf3bfh",   # security_bot
         "Content-Type": "application/json"
@@ -73,7 +78,7 @@ async def send_message_to_user(author, message, matchbasedid):
 
     users = ["security_bot", author]
     usermaps = dict()
-    button_payload = {"matchbasedid": matchbasedid}
+    button_payload = {"matchbasedid": matchbasedid, "uri": uri, "project": project}
     for user in users:
         try:
             userid = requests.post("http://host.docker.internal:8065/api/v4/users/usernames", headers=headers, json=[user]).json()[0]['id']
@@ -92,19 +97,24 @@ async def send_message_to_user(author, message, matchbasedid):
             "attachments": [
                 {
                     "color": "#FF8000",
-                    "title": "Найдена уязвимость в коде!",
-                    "title_link": "http://host.docker.internal:90/projects/SECISSUE/issues/?filter=allopenissues",
+                    "title": "Найдена уязвимость в коде репозитория " + project + "!",
+                    "title_link": uri,
                     "text": message,
                     "fields": [
-                    {
-                    "short": False,
-                    "title":"Vulnerability Id",
-                    "value": matchbasedid
-                    },
                     {
                     "short": True,
                     "title":"Критичность",
                     "value":"Высокая"
+                    },
+                    {
+                    "short": True,
+                    "title":"Ссылка на уязвимый код",
+                    "value": uri
+                    },
+                    {
+                    "short": False,
+                    "title":"Vulnerability Id",
+                    "value": matchbasedid
                     },
                     ],
                     "actions": [
@@ -175,15 +185,16 @@ async def upload_file(file: UploadFile = File(...), token: str = Depends(oauth2_
             vuln["message"] = result["message"]["text"]
             vuln["timestamp"] = str(datetime.now())
             vuln["status"] = "created"
+            vuln["notification_status"] = "Need_to_send"
             row = await db_connection.fetchrow("SELECT * FROM sast_vulns WHERE ruleid = $1 and (matchBasedId = $2 or code_line = $3)", vuln["ruleId"], vuln["matchBasedId"], vuln["code_line"])
             if row:
                 print("Dublicate", row)
                 continue
-            flag_of_send = send_message_to_user(vuln["author"], vuln["message"], vuln["matchBasedId"])
-            if flag_of_send:
-                vuln["notification_status"] = "Sended"
-            else:
-                vuln["notification_status"] = "Need_to_send"
+            # flag_of_send = await send_message_to_user(vuln["author"].split("+")[0].strip().lower(), vuln["message"], vuln["matchBasedId"])
+            # if flag_of_send:
+            #     vuln["notification_status"] = "Sended"
+            # else:
+            #     vuln["notification_status"] = "Need_to_send"
             vulns_to_bd.append(vuln)
             await db_connection.execute('''INSERT INTO sast_vulns(matchBasedId, uri_line, collumns, code_line, commit_hash, author, ruleId, message, timestamp, status, notification_status) 
                                VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)''', vuln["matchBasedId"], vuln["uri_line"], vuln["collumns"], vuln["code_line"], vuln["commit_hash"], vuln["author"], vuln["ruleId"], vuln["message"], vuln["timestamp"], vuln["status"], vuln["notification_status"])
@@ -281,7 +292,7 @@ async def fetch_and_send(token: str = Depends(oauth2_scheme)):
         await db_connection.close()
         for row in vuln_to_send:
             print(row["matchbasedid"])
-            await send_message_to_user(row["author"].split("+")[0].strip().lower(), row["message"], row["matchbasedid"])
+            await send_message_to_user(row["author"].split("+")[0].strip().lower(), row["message"], row["matchbasedid"], row["uri_line"], row["project"])
         return {"message": "Messages sent to users"}
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token has expired")
@@ -295,17 +306,52 @@ async def change_status_by_bot(data: dict):
     # TODO: Add logic to change status with validation
     print(data)
     matchbasedid = data['context']['payload']['matchbasedid']
+    uri = data['context']['payload']['uri']
+    project = data['context']['payload']['project']
     status = data['context']['action']
-    print({"status": status, "matchbasedid": matchbasedid})
+    print({"status": status, "matchbasedid": matchbasedid, "uri": uri, "project": project})
     if status=="True Positive":
         db_connection = await connect_to_database()
         await db_connection.execute('''UPDATE sast_vulns SET status = $1 WHERE matchBasedId = $2;''', status, matchbasedid)
         await db_connection.close()
-        return {"update": {"props": {"attachments": [{"color": "#99FF99","title": "Спасибо за помощь!","text": "Уязвимость с id **_"+ matchbasedid + "_** теперь имеет статус **" + status+"**. Теперь важно устранить эту уязвимость до выхода ПО в общий доступ. По всем вопросам обращайтесь в команду ИБ."}]}}}
+        return {"update": {"props": {"attachments": [{"color": "#99FF99","title": "Спасибо за помощь!","text": "Уязвимость с id **_"+ matchbasedid + "_** теперь имеет статус **" + status+"**. Теперь важно устранить эту уязвимость до выхода ПО в общий доступ. По всем вопросам обращайтесь в команду ИБ.", "fields": [{"short": True,"title":"Репозиторий","value":project}, {"short": True,"title":"Ссылка на уязвимый код","value": uri},{"short": False,"title":"Vulnerability Id","value": matchbasedid}]}]}}}
     elif status=="Need review":
         db_connection = await connect_to_database()
         await db_connection.execute('''UPDATE sast_vulns SET status = $1 WHERE matchBasedId = $2;''', status, matchbasedid)
         await db_connection.close()
-        return {"update": {"props": {"attachments": [{"color": "#004DFF","title": "Спасибо за помощь!","text": "Уязвимость с id **_"+ matchbasedid + "_** теперь имеет статус **" + status+"**. Команда ИБ проверит верность этого решения и в случае чего свяжется с Вами. По всем вопросам обращайтесь в команду ИБ."}]}}}
+        return {"update": {"props": {"attachments": [{"color": "#004DFF","title": "Спасибо за помощь!","text": "Уязвимость с id **_"+ matchbasedid + "_** теперь имеет статус **" + status+"**. Команда ИБ проверит верность этого решения и в случае чего свяжется с Вами. По всем вопросам обращайтесь в команду ИБ.", "fields": [{"short": True,"title":"Репозиторий","value":project}, {"short": True,"title":"Ссылка на уязвимый код","value": uri},{"short": False,"title":"Vulnerability Id","value": matchbasedid}]}]}}}
     else:
         raise HTTPException(status_code=450, detail="Not valid status")
+    
+
+
+# Ручка для обогащения информации об уязвимостях
+@app.post("/get_more_info")
+async def change_status(request_data: DetailsAddRequest, token: str = Depends(oauth2_scheme)): 
+    try:
+        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+        actor_username = payload.get("sub")
+        if actor_username is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        
+        print(request_data)
+        db_connection = await connect_to_database()
+        await db_connection.execute('''UPDATE sast_vulns SET project = $1 WHERE commit_hash = $2;''', request_data.project_name, request_data.commit_hash)
+        print(request_data.commit_hash)
+        uris = await db_connection.fetch('''SELECT uri_line, matchbasedid FROM sast_vulns WHERE commit_hash = $1;''', request_data.commit_hash)
+        print(uris)
+        for uri in uris:
+            if uri['uri_line'][10] == request_data.repo_link[10]:
+                print("skip")
+                continue
+            new_uri = request_data.repo_link + request_data.project_name + "/-/blob/" + request_data.commit_hash + "/" + uri['uri_line'].split(":")[0] + "#L" + uri['uri_line'].split(":")[1]
+            print(new_uri)
+            await db_connection.execute('''UPDATE sast_vulns SET uri_line = $1 WHERE matchbasedid = $2;''', new_uri, uri['matchbasedid'])
+        await db_connection.close()
+        return {
+            "status": "changed"
+        }
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
