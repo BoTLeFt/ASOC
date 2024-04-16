@@ -1,0 +1,30 @@
+# You can override the included template(s) by including variable overrides
+# SAST customization: https://docs.gitlab.com/ee/user/application_security/sast/#customizing-the-sast-settings
+# Secret Detection customization: https://docs.gitlab.com/ee/user/application_security/secret_detection/pipeline/#customization
+# Dependency Scanning customization: https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#customizing-the-dependency-scanning-settings
+# Container Scanning customization: https://docs.gitlab.com/ee/user/application_security/container_scanning/#customizing-the-container-scanning-settings
+# Note that environment variables can be set in several places
+# See https://docs.gitlab.com/ee/ci/variables/#cicd-variable-precedence
+semgrep-kotlin:
+  image:
+    name: semgrep/semgrep:latest
+  stage: test
+  script:
+    - CI_COMMIT_AUTHOR=$(sed 's/ /+/g' <<< "$CI_COMMIT_AUTHOR")
+    - CI_COMMIT_SHA=$(sed 's/ /+/g' <<< "$CI_COMMIT_SHA")
+    - FILENAME="${CI_COMMIT_AUTHOR}_${CI_COMMIT_SHA}"
+    - FILENAME=${FILENAME//<}
+    - FILENAME=${FILENAME//>}
+    - echo "${FILENAME}"
+    - ls -la
+    - semgrep scan --config semgrep-rules/ --sarif --output="${FILENAME}" .
+    - echo $?
+    - ls -la
+    - cat "${FILENAME}"
+    - echo "${CI_PROJECT_NAME}"
+    - |
+      curl -X 'POST' 'http://host.docker.internal:8080/upload_file/' -H 'accept: application/json' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjcmVlcEBjcmVlcC5jb20ifQ.SvlL1y-O0ZiJIXhLeumXOjsxSfzIrozGh57ln8ROgkw' -H 'Content-Type:multipart/form-data' -F "file=@$FILENAME"
+    - |
+      curl -X 'POST' 'http://host.docker.internal:8080/get_more_info' -H 'accept: application/json' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjcmVlcEBjcmVlcC5jb20ifQ.SvlL1y-O0ZiJIXhLeumXOjsxSfzIrozGh57ln8ROgkw' -H 'Content-Type: application/json' -d '{"commit_hash": "'$CI_COMMIT_SHA'","project_name": "'$CI_PROJECT_NAME'","repo_link": "http://host.docker.internal:8899/root/"}'
+    - |
+      curl -X 'GET' 'http://host.docker.internal:8080/send-notifications' -H 'accept: application/json' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjcmVlcEBjcmVlcC5jb20ifQ.SvlL1y-O0ZiJIXhLeumXOjsxSfzIrozGh57ln8ROgkw'
