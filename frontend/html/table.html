@@ -76,6 +76,7 @@
             <tr class="tr_header">
                 <th class="th_matchbasedid_col">matchbasedid</th>
                 <th>uri_line</th>
+                <th>project</th>
                 <th>collumns</th>
                 <th>code_line</th>
                 <th>commit_hash</th>
@@ -127,7 +128,8 @@
         const row = document.createElement('tr');
         row.innerHTML = `
           <td class="th_matchbasedid_col">${item.matchbasedid}</td>
-          <td>${item.uri_line}</td>
+          <td><a href=${item.uri_line}>${item.uri_line}</a></td> 
+          <td>${item.project}</td>
           <td>${item.collumns}</td>
           <td>${item.code_line}</td>
           <td>${item.commit_hash}</td>
