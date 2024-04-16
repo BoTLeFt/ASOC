@@ -6,3 +6,4 @@ asyncpg
 passlib
 pyjwt
 starlette
+requests

@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import asyncpg
 import json
 from pydantic import BaseModel
+import requests
 
 class StatusChangeRequest(BaseModel):
     matchBasedId: str
@@ -64,33 +65,44 @@ def create_access_token(username: str, expires_delta: int = None):
     return encoded_jwt
     
 
-async def send_message_to_user(email, message, button_payload):
-    # Здесь необходимо вставить логику отправки сообщения в Mattermost
-    # Например, используя Mattermost API или Mattermost Python SDK
-    # Это может потребовать аутентификации, получения токена и т.д.
-    # Важно сформировать корректный запрос с текстом сообщения и кнопками.
-    # Пример отправки сообщения через Mattermost API:
-    url = "http://host.docker.internal:8065/api/v4/posts"
+async def send_message_to_user(author, message, button_payload):
     headers = {
-        "Authorization": "Bearer your_access_token",   # Add smthing
+        "Authorization": "bearer hi8x8dw4gfgzzjujzb4zuf3bfh",   # security_bot
         "Content-Type": "application/json"
     }
+
+    users = ["security_bot", author]
+    usermaps = dict()
+    for user in users:
+        try:
+            userid = requests.post("http://host.docker.internal:8065/api/v4/users/usernames", headers=headers, json=[user]).json()[0]['id']
+            usermaps[user]=userid
+        except Exception:
+            usermaps[user]="none"
+    
+    print(usermaps)
+    channel_id = requests.post("http://host.docker.internal:8065/api/v4/channels/direct", headers=headers, json=[usermaps["security_bot"], usermaps[author]]).json()['id']
+    # channel_team_id = "oyc7i4hwsibsdbk1pm8ra8an7e"
+    url = "http://host.docker.internal:8065/api/v4/posts"
+    
     data = {
-        "channel_id": "your_channel_id",   # TODO: Make a way to generate channel_id for direct message
+        "channel_id": channel_id,
         "message": message,
         "props": {
             "attachments": [
                 {
                     "actions": [
-                        {"name": "Подтверждаю", "integration": {"url": "http://yourserver.com/change-status-by-bot", "context": {"action": "confirm", "payload": button_payload}}},
-                        {"name": "Это ошибка", "integration": {"url": "http://yourserver.com/change-status-by-bot", "context": {"action": "error", "payload": button_payload}}}
+                        {"name": "Подтверждаю", "integration": {"url": "http://host.docker.internal:8080/change-status-by-bot", "context": {"action": "confirm", "payload": button_payload}}},
+                        {"name": "Это ошибка", "integration": {"url": "http://host.docker.internal:8080/change-status-by-bot", "context": {"action": "error", "payload": button_payload}}}
                     ]
                 }
             ]
         }
     }
     response = requests.post(url, headers=headers, json=data)
-    if response.status_code != 200:
+    print(response, response.json())
+    # TODO: Добавить смену статуса отправляемой коммуникации на "SEND" в бд
+    if response.status_code != 201:
         raise HTTPException(status_code=response.status_code, detail="Failed to send message to Mattermost")
 
 
@@ -108,24 +120,24 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-@app.get("/users/me")
-async def read_users_me(token: str = Depends(oauth2_scheme)):
-    try:
-        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
-        username = payload.get("sub")
-        if username is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token has expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    db_connection = await connect_to_database()
-    row = await db_connection.fetchrow("SELECT * FROM users WHERE username = $1 ORDER BY disabled desc", username)
-    await db_connection.close()
-    user = dict(row)
-    if not user:
-        return {"error": 'No such user'}
-    return {'username': user['username'], 'full_name': user['full_name'], 'email': user['email'], 'hashed_password': user['hashed_password'], 'disabled': user['disabled']}
+# @app.get("/users/me")
+# async def read_users_me(token: str = Depends(oauth2_scheme)):
+#     try:
+#         payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+#         username = payload.get("sub")
+#         if username is None:
+#             raise HTTPException(status_code=401, detail="Invalid token")
+#     except jwt.ExpiredSignatureError:
+#         raise HTTPException(status_code=401, detail="Token has expired")
+#     except jwt.InvalidTokenError:
+#         raise HTTPException(status_code=401, detail="Invalid token")
+#     db_connection = await connect_to_database()
+#     row = await db_connection.fetchrow("SELECT * FROM users WHERE username = $1 ORDER BY disabled desc", username)
+#     await db_connection.close()
+#     user = dict(row)
+#     if not user:
+#         return {"error": 'No such user'}
+#     return {'username': user['username'], 'full_name': user['full_name'], 'email': user['email'], 'hashed_password': user['hashed_password'], 'disabled': user['disabled']}
 
 
 @app.get("/hash/{password}")
@@ -133,26 +145,26 @@ async def hash_password(password: str):   # Debug
     return {"hash": pwd_context.hash(password)}
 
 
-@app.get("/user_from_db/{username}")
-async def user_from_db(username: str, token: str = Depends(oauth2_scheme)):
-    try:
-        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
-        actor_username = payload.get("sub")
-        if actor_username is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        db_connection = await connect_to_database()
-        row = await db_connection.fetchrow("SELECT * FROM users WHERE username = $1 ORDER BY disabled desc", username)
-        await db_connection.close()
-        user = dict(row)
-        if not user:
-            return {"error": 'No such user'}
-        return {'username': user['username'], 'full_name': user['full_name'], 'email': user['email'], 'hashed_password': user['hashed_password'], 'disabled': user['disabled']}
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token has expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    except (Exception, Error) as error:
-        return {"error": error}
+# @app.get("/user_from_db/{username}")
+# async def user_from_db(username: str, token: str = Depends(oauth2_scheme)):
+#     try:
+#         payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+#         actor_username = payload.get("sub")
+#         if actor_username is None:
+#             raise HTTPException(status_code=401, detail="Invalid token")
+#         db_connection = await connect_to_database()
+#         row = await db_connection.fetchrow("SELECT * FROM users WHERE username = $1 ORDER BY disabled desc", username)
+#         await db_connection.close()
+#         user = dict(row)
+#         if not user:
+#             return {"error": 'No such user'}
+#         return {'username': user['username'], 'full_name': user['full_name'], 'email': user['email'], 'hashed_password': user['hashed_password'], 'disabled': user['disabled']}
+#     except jwt.ExpiredSignatureError:
+#         raise HTTPException(status_code=401, detail="Token has expired")
+#     except jwt.InvalidTokenError:
+#         raise HTTPException(status_code=401, detail="Invalid token")
+#     except (Exception, Error) as error:
+#         return {"error": error}
     
 
 # Ручка для загрузки файла
@@ -286,10 +298,11 @@ async def fetch_and_send(background_tasks: BackgroundTasks, token: str = Depends
         vuln_to_send = await db_connection.fetch('''SELECT * FROM sast_vulns WHERE notification_status='Need_to_send';''')
         await db_connection.close()
         for row in vuln_to_send:
-            email = row["author"]
+            author = row["author"]
             message = row["message"]
-            button_payload = {"matchBasedId": row["matchBasedId"]}
-            background_tasks.add_task(send_message_to_user, email, message, button_payload)
+            button_payload = {"matchbasedid": row["matchbasedid"]}
+            print(row["matchbasedid"])
+            await send_message_to_user(author.split("+")[0].strip().lower(), message, button_payload)
         return {"message": "Messages sent to users"}
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token has expired")
@@ -301,4 +314,5 @@ async def fetch_and_send(background_tasks: BackgroundTasks, token: str = Depends
 @app.post("/change-status-by-bot")
 async def change_status_by_bot(action: str, payload: dict):
     # TODO: Add logic to change status with validation
+    print({"action": action, "payload": payload})
     return {"action": action, "payload": payload}
