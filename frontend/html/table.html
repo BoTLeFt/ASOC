@@ -13,14 +13,14 @@
       padding: 0;
     }
     #container {
-      max-width: 1920px;
+      max-width: 2500px;
       margin: 20px auto;
       padding: 20px;
       background-color: #fff;
       border-radius: 8px;
       box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
       overflow: auto;
-      width: 1920px;
+      width: 2500px;
       height: 900px;
       max-height: 900px;
       min-height: 900px;
@@ -60,6 +60,36 @@
       min-width: 100px;
       word-break: break-all;
     }
+    .th_uri_line_col {
+      width: 200px;
+      max-width: 200px;
+      min-width: 200px;
+      word-break: break-all;
+    }
+    .th_code_line_col {
+      width: 300px;
+      max-width: 300px;
+      min-width: 300px;
+      word-break: break-all;
+    }
+    .th_author_col {
+      width: 125px;
+      max-width: 125px;
+      min-width: 125px;
+      word-break: break-all;
+    }
+    .th_ruleid_col {
+      width: 100px;
+      max-width: 100px;
+      min-width: 100px;
+      word-break: break-all;
+    }
+    .th_message_col {
+      width: 500px;
+      max-width: 500px;
+      min-width: 500px;
+      word-break: break-all;
+    }
     .tr_header {
       position: sticky;
       top: -20px;
@@ -75,18 +105,18 @@
         <thead>
             <tr class="tr_header">
                 <th class="th_matchbasedid_col">matchbasedid</th>
-                <th>uri_line</th>
+                <th class="th_uri_line_col">uri_line</th>
                 <th>project</th>
-                <th>collumns</th>
-                <th>code_line</th>
-                <th>commit_hash</th>
-                <th>author</th>
-                <th>ruleid</th>
-                <th>message</th>
-                <th>timestamp</th>
+                <!--th>collumns</th-->
+                <th class="th_code_line_col">code_line</th>
+                <!--th>commit_hash</th-->
+                <th class="th_author_col">author</th>
                 <th>status</th>
-                <th>notification_status</th>
                 <th>Change Status</th>
+                <th class="th_ruleid_col">ruleid</th>
+                <th class="th_message_col">message</th>
+                <th>timestamp</th>
+                <th>notification_status</th>
                 <th>Change Notification Status</th>
             </tr>
         </thead>
@@ -127,18 +157,14 @@
       data.forEach(item => {
         const row = document.createElement('tr');
         row.innerHTML = `
-          <td class="th_matchbasedid_col">${item.matchbasedid}</td>
-          <td><a href=${item.uri_line}>${item.uri_line}</a></td> 
+          <td class="th_matchbasedid_col">${item.matchbasedid.slice(6)}</td>
+          <td class="th_uri_line_col"><a href=${item.uri_line}>${item.uri_line}</a></td> 
           <td>${item.project}</td>
-          <td>${item.collumns}</td>
-          <td>${item.code_line}</td>
-          <td>${item.commit_hash}</td>
-          <td>${item.author}</td>
-          <td>${item.ruleid}</td>
-          <td>${item.message}</td>
-          <td>${item.timestamp}</td>
+          <!--td>${item.collumns}</td-->
+          <td class="th_code_line_col">${item.code_line}</td>
+          <!--td>${item.commit_hash}</td-->
+          <td class="th_author_col">${item.author}</td>
           <td>${item.status}</td>
-          <td>${item.notification_status}</td>
           <td>
             <select onchange="changeStatus(this.value, '${item.matchbasedid}')">
               <option value="" selected disabled hidden>Change status</option>
@@ -149,6 +175,10 @@
               <option value="Fixed">Fixed</option>
             </select>
           </td>
+          <td class="th_ruleid_col">${item.ruleid}</td>
+          <td class="th_message_col">${item.message}</td>
+          <td>${item.timestamp}</td>
+          <td>${item.notification_status}</td>
           <td>
             <select onchange="changeNotificationStatus(this.value, '${item.matchbasedid}')">
               <option value="" selected disabled hidden>Change status</option>

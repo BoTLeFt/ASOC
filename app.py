@@ -259,7 +259,7 @@ async def data(token: str = Depends(oauth2_scheme)):
 
 # Ручка для смены статуса уязвимости
 @app.post("/change_notification_status")
-async def change_status(request_data: NotificationStatusChangeRequest, token: str = Depends(oauth2_scheme)): 
+async def change_notification_status(request_data: NotificationStatusChangeRequest, token: str = Depends(oauth2_scheme)): 
     try:
         payload = jwt.decode(token, secret_key, algorithms=["HS256"])
         actor_username = payload.get("sub")
@@ -280,7 +280,7 @@ async def change_status(request_data: NotificationStatusChangeRequest, token: st
 
 # Ручка для отправки нотификации по всем уязвимостям, где статус - Need_to_send
 @app.get("/send-notifications")
-async def fetch_and_send(token: str = Depends(oauth2_scheme)):
+async def fetch_and_send(commit_hash: str, token: str = Depends(oauth2_scheme)):
     try:
         payload = jwt.decode(token, secret_key, algorithms=["HS256"])
         actor_username = payload.get("sub")
@@ -288,7 +288,8 @@ async def fetch_and_send(token: str = Depends(oauth2_scheme)):
             raise HTTPException(status_code=401, detail="Invalid token")
         
         db_connection = await connect_to_database()
-        vuln_to_send = await db_connection.fetch('''SELECT * FROM sast_vulns WHERE notification_status='Need_to_send';''')
+        print(commit_hash)
+        vuln_to_send = await db_connection.fetch('''SELECT * FROM sast_vulns WHERE notification_status='Need_to_send' AND commit_hash = $1;''', commit_hash)
         await db_connection.close()
         for row in vuln_to_send:
             print(row["matchbasedid"])

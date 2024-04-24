@@ -27,4 +27,4 @@ semgrep-kotlin:
     - |
       curl -X 'POST' 'http://host.docker.internal:8080/get_more_info' -H 'accept: application/json' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjcmVlcEBjcmVlcC5jb20ifQ.SvlL1y-O0ZiJIXhLeumXOjsxSfzIrozGh57ln8ROgkw' -H 'Content-Type: application/json' -d '{"commit_hash": "'$CI_COMMIT_SHA'","project_name": "'$CI_PROJECT_NAME'","repo_link": "http://host.docker.internal:8899/root/"}'
     - |
-      curl -X 'GET' 'http://host.docker.internal:8080/send-notifications' -H 'accept: application/json' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjcmVlcEBjcmVlcC5jb20ifQ.SvlL1y-O0ZiJIXhLeumXOjsxSfzIrozGh57ln8ROgkw'
+      curl -X 'GET' "http://host.docker.internal:8080/send-notifications?commit_hash='$CI_COMMIT_SHA'" -H 'accept: application/json' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjcmVlcEBjcmVlcC5jb20ifQ.SvlL1y-O0ZiJIXhLeumXOjsxSfzIrozGh57ln8ROgkw'
