@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
-import { Rating } from "primereact/rating";
 import { MultiSelect } from "primereact/multiselect";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { SelectButton } from 'primereact/selectbutton';
 
 const Table = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -11,7 +11,6 @@ const Table = () => {
   const [data, setData] = useState(null);
   const defaultColumns = [
     { field: "ruleid", header: "ruleid" }
-    // { field: "quantity", header: "Quantity" }
   ];
 
   const columns = [
@@ -23,6 +22,14 @@ const Table = () => {
   ];
 
   const [visibleColumns, setVisibleColumns] = useState(defaultColumns);
+
+  const statusSelectItems = [
+    {label: 'Created', value: 'created'},
+    {label: 'False Positive', value: 'False Positive'},
+    {label: 'True Positive', value: 'True Positive'},
+    {label: 'Need review', value: 'Need review'},
+    {label: 'Fixed', value: 'Fixed'}
+  ];
 
   useEffect(() => {
     fetch("http://host.docker.internal:8080/data", {
@@ -62,23 +69,40 @@ const Table = () => {
   );
   const footer = <p>Total data = {data ? data.length : 0}</p>;
 
-  const ratingBodyTemplate = (rowData) => {
-    return <Rating value={rowData.rating} readOnly cancel={false} />;
+  // const statusChangeBodyTemplate = (rowData) => {
+  //   return <SelectButton value={rowData.status} options={statusSelectItems} onChange={(e) => e.value}></SelectButton>;
+  // };
+  const statusChangeBodyTemplate = (rowData) => {
+    const handleChange = (e) => {
+      const newStatus = e.value;
+      const updatedData = [...data];
+      const rowIndex = updatedData.findIndex(item => item.id === rowData.id);
+      updatedData[rowIndex].status = newStatus;
+      setData(updatedData);
+  
+      const requestOptions = {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matchBasedId: updatedData[rowIndex].matchbasedid, status:  updatedData[rowIndex].status})
+      };
+      fetch('http://host.docker.internal:8080/change_status', requestOptions)
+        .then(response => {
+          console.log('Status updated successfully:', updatedData[rowIndex].status);
+        })
+        .catch(error => {
+          console.error('Error updating status:', error);
+        });
+    };
+  
+    return (
+      <SelectButton
+        value={rowData.status}
+        options={statusSelectItems}
+        onChange={handleChange}
+      />
+    );
   };
 
-  // const codeBodyTemplate = (rowData) => {
-  //   const rawHTML = `
-  //   <div className="Code">
-  //       <pre>
-  //         <code className={\`language-csharp\`}>${rowData.code_line}</code>
-  //       </pre>
-  //   </div>
-  //   `
-  //   return (
-  //   <div>
-  //     <div dangerouslySetInnerHTML={{ __html: rawHTML }}></div>
-  //   </div>);
-  // };
   const codeBodyTemplate = (rowData) => {
     return(<SyntaxHighlighter language="csharp">
       {rowData.code_line}
@@ -127,9 +151,9 @@ const Table = () => {
           sortable>
         </Column>
         <Column
-          field="rating"
-          header="Rating"
-          body={ratingBodyTemplate}
+          field="status"
+          header="Change status"
+          body={statusChangeBodyTemplate}
           sortable>
         </Column>
 

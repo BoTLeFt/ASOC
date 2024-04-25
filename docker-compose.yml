@@ -11,6 +11,7 @@ services:
       - 8080:8080
     extra_hosts:
       - "host.docker.internal:host-gateway"
+  
   asoc-front:
     image: asoc-front
     container_name: asoc-front
@@ -21,6 +22,7 @@ services:
       - 80:80
     extra_hosts:
       - "host.docker.internal:host-gateway"
+  
   asoc-pgsql:
     image: asoc-pgsql
     container_name: asoc-pgsql
@@ -35,5 +37,16 @@ services:
       dockerfile: postgresql/Dockerfile
     ports:
       - "5432:5432"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  
+  asoc-react-front:
+    image: asoc-react-front
+    container_name: asoc-react-front
+    build:
+      context: .
+      dockerfile: new_front/Dockerfile
+    ports:
+      - 3000:3000
     extra_hosts:
       - "host.docker.internal:host-gateway"

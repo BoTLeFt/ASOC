@@ -11,7 +11,7 @@ body {
   padding: 20px;
 }
 .table-wrapper {
-  max-width: 3200px;
+  max-width: 100%;
 }
 .table-name {
   text-align: center;
