@@ -1,11 +1,56 @@
 import Table from "./Table";
+import LoginForm from "./LoginForm";
+import LogoutPage from "./LogoutPage";
+import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom"
 
-function App() {
+export default function App() {
   return (
-    <div className="App">
+    <Router>
+      <div>
+        <nav>
+          <ul>
+            <li>
+              <Link to="/">Table</Link>
+            </li>
+            <li>
+              <Link to="/login">Login</Link>
+            </li>
+            <li>
+              <Link to="/logout">logout</Link>
+            </li>
+          </ul>
+        </nav>
+
+        <Routes>
+          <Route path="/" element={<RenderTable />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/logout" element={<Logout />} />
+        </Routes>
+      </div>
+    </Router>
+  );
+}
+
+function Login() {
+  return (
+    <div>
+      <LoginForm />
+    </div>
+  );
+}
+
+function RenderTable() {
+  return (
+    <div className="Table">
       <Table />
     </div>
   );
 }
 
-export default App;
+function Logout() {
+  return (
+    <div>
+      <LogoutPage />
+    </div>
+  );
+}

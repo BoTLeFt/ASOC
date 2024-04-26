@@ -7,7 +7,13 @@ import { SelectButton } from 'primereact/selectbutton';
 
 const Table = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
-  const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjcmVlcEBjcmVlcC5jb20ifQ.SvlL1y-O0ZiJIXhLeumXOjsxSfzIrozGh57ln8ROgkw"
+
+  // Проверяем, есть ли токен в localStorage
+  var token = localStorage.getItem('access_token');
+  if (!token) {
+    alert('Токен не найден. Перенаправляем на страницу аутентификации.');
+    window.location.href = '/login'; // Перенаправляем на страницу аутентификации
+  }
   const [data, setData] = useState(null);
   const defaultColumns = [
     { field: "ruleid", header: "ruleid" }
