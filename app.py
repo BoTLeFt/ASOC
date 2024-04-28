@@ -356,3 +356,59 @@ async def change_status(request_data: DetailsAddRequest, token: str = Depends(oa
         raise HTTPException(status_code=401, detail="Token has expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
+    
+
+# Ручка для получения данных из бд
+@app.get("/get_metrics")
+async def get_metrics(metric: str, token: str = Depends(oauth2_scheme)): 
+    try:
+        payload = jwt.decode(token, secret_key, algorithms=["HS256"])
+        actor_username = payload.get("sub")
+        if actor_username is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        
+        db_connection = await connect_to_database()
+        data = await db_connection.fetch("SELECT * FROM sast_vulns")
+        await db_connection.close()
+        if metric == "status":
+            db_connection = await connect_to_database()
+            data = await db_connection.fetch("SELECT status FROM sast_vulns")
+            result_dict = dict()
+            for row in data:
+                result_dict[row['status']] = result_dict.get(row['status'], 0) + 1
+            await db_connection.close()
+            return dict(sorted(result_dict.items()))
+        elif metric == "ruleid":
+            db_connection = await connect_to_database()
+            data = await db_connection.fetch("SELECT ruleid FROM sast_vulns")
+            result_dict = dict()
+            for row in data:
+                result_dict[row['ruleid']] = result_dict.get(row['ruleid'], 0) + 1
+            await db_connection.close()
+            return dict(sorted(result_dict.items()))
+        elif metric == "project":
+            db_connection = await connect_to_database()
+            data = await db_connection.fetch("SELECT project FROM sast_vulns")
+            result_dict = dict()
+            for row in data:
+                result_dict[row['project']] = result_dict.get(row['project'], 0) + 1
+            await db_connection.close()
+            return dict(sorted(result_dict.items()))
+        elif metric == "author":
+            db_connection = await connect_to_database()
+            data = await db_connection.fetch("SELECT author FROM sast_vulns")
+            result_dict = dict()
+            for row in data:
+                result_dict[row['author'].split('+')[0]] = result_dict.get(row['author'].split('+')[0], 0) + 1
+            await db_connection.close()
+            return dict(sorted(result_dict.items()))
+        # elif metric == "severity":
+        #     pass
+        else:
+            raise HTTPException(status_code=404, detail="Invalid metric key")
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token has expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    # except Exception:
+    #     raise HTTPException(status_code=404, detail="Something wrong")

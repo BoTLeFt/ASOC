@@ -12,16 +12,16 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
   
-  asoc-front:
-    image: asoc-front
-    container_name: asoc-front
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
-    ports:
-      - 80:80
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+  # asoc-front:
+  #   image: asoc-front
+  #   container_name: asoc-front
+  #   build:
+  #     context: .
+  #     dockerfile: frontend/Dockerfile
+  #   ports:
+  #     - 80:80
+  #   extra_hosts:
+  #     - "host.docker.internal:host-gateway"
   
   asoc-pgsql:
     image: asoc-pgsql

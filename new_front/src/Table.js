@@ -62,7 +62,6 @@ const Table = () => {
 
     setVisibleColumns(orderedSelectedColumns);
   };
-
   const header = (
     <MultiSelect
       value={visibleColumns}

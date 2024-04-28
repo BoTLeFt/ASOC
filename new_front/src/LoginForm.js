@@ -30,7 +30,7 @@ const LoginForm = () => {
       localStorage.setItem('access_token', data.access_token);
       window.location.href = '/'; // Redirect to '/'
     } catch (error) {
-      console.error('Error:', error);
+      alert('Ошибка. ', error);
     }
   };
 

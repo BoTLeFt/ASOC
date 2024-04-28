@@ -1,4 +1,5 @@
 import Table from "./Table";
+import Dashboard from "./Dashboard";
 import LoginForm from "./LoginForm";
 import LogoutPage from "./LogoutPage";
 import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom"
@@ -42,6 +43,7 @@ function Login() {
 function RenderTable() {
   return (
     <div className="Table">
+      <Dashboard />
       <Table />
     </div>
   );
