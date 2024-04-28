@@ -4,6 +4,7 @@ import { Column } from "primereact/column";
 import { MultiSelect } from "primereact/multiselect";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { SelectButton } from 'primereact/selectbutton';
+import Dashboard from "./Dashboard";
 
 const Table = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -24,7 +25,8 @@ const Table = () => {
     { field: "message", header: "message" },
     { field: "commit_hash", header: "commit_hash" },
     { field: "status", header: "status" },
-    { field: "ruleid", header: "ruleid" }
+    { field: "ruleid", header: "ruleid" },
+    { field: "severity", header: "severity" }
   ];
 
   const [visibleColumns, setVisibleColumns] = useState(defaultColumns);
@@ -74,9 +76,6 @@ const Table = () => {
   );
   const footer = <p>Total data = {data ? data.length : 0}</p>;
 
-  // const statusChangeBodyTemplate = (rowData) => {
-  //   return <SelectButton value={rowData.status} options={statusSelectItems} onChange={(e) => e.value}></SelectButton>;
-  // };
   const statusChangeBodyTemplate = (rowData) => {
     const handleChange = (e) => {
       const newStatus = e.value;
@@ -91,12 +90,14 @@ const Table = () => {
         body: JSON.stringify({ matchBasedId: updatedData[rowIndex].matchbasedid, status:  updatedData[rowIndex].status})
       };
       fetch('http://host.docker.internal:8080/change_status', requestOptions)
-        .then(response => {
-          console.log('Status updated successfully:', updatedData[rowIndex].status);
-        })
-        .catch(error => {
-          console.error('Error updating status:', error);
-        });
+      .then(response => {
+        console.log('Status updated successfully:', updatedData[rowIndex].status);
+      })
+      .catch(error => {
+        console.error('Error updating status:', error);
+      });
+
+      Dashboard.forceUpdate()
     };
   
     return (

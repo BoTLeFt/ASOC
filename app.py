@@ -199,6 +199,13 @@ async def upload_file(file: UploadFile = File(...), token: str = Depends(oauth2_
             await db_connection.execute('''INSERT INTO sast_vulns(matchBasedId, uri_line, collumns, code_line, commit_hash, author, ruleId, message, timestamp, status, notification_status) 
                                VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)''', vuln["matchBasedId"], vuln["uri_line"], vuln["collumns"], vuln["code_line"], vuln["commit_hash"], vuln["author"], vuln["ruleId"], vuln["message"], vuln["timestamp"], vuln["status"], vuln["notification_status"])
 
+        rules = json.loads(contents)["runs"][0]["tool"]["driver"]["rules"]
+        print(rules)
+        for rule in rules:
+            ruleid = rule["id"]
+            severity = rule["properties"]["security-severity"].capitalize()
+            await db_connection.execute('''UPDATE sast_vulns SET severity = $1 WHERE ruleid = $2;''', severity, ruleid)
+
         await db_connection.close()
         to_return = ""
         for vuln in vulns_to_bd:
@@ -375,7 +382,7 @@ async def get_metrics(metric: str, token: str = Depends(oauth2_scheme)):
             data = await db_connection.fetch("SELECT status FROM sast_vulns")
             result_dict = dict()
             for row in data:
-                result_dict[row['status']] = result_dict.get(row['status'], 0) + 1
+                result_dict[row['status'].capitalize()] = result_dict.get(row['status'].capitalize(), 0) + 1
             await db_connection.close()
             return dict(sorted(result_dict.items()))
         elif metric == "ruleid":
@@ -402,8 +409,14 @@ async def get_metrics(metric: str, token: str = Depends(oauth2_scheme)):
                 result_dict[row['author'].split('+')[0]] = result_dict.get(row['author'].split('+')[0], 0) + 1
             await db_connection.close()
             return dict(sorted(result_dict.items()))
-        # elif metric == "severity":
-        #     pass
+        elif metric == "severity":
+            db_connection = await connect_to_database()
+            data = await db_connection.fetch("SELECT severity FROM sast_vulns")
+            result_dict = dict()
+            for row in data:
+                result_dict[row['severity']] = result_dict.get(row['severity'], 0) + 1
+            await db_connection.close()
+            return dict(sorted(result_dict.items()))
         else:
             raise HTTPException(status_code=404, detail="Invalid metric key")
     except jwt.ExpiredSignatureError:

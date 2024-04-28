@@ -7,16 +7,13 @@ const PieChartDemo = () => {
     if (!token) {
         window.location.href = '/login'; // Перенаправляем на страницу аутентификации
     }
-    const [statusMetric, setStatusMetric] = useState(null);
-    const [ruleidMetric, setRuleidMetric] = useState(null);
-    const [projectMetric, setProjectMetric] = useState(null);
-    const [authorMetric, setAuthorMetric] = useState(null);
     const [statusChartData, setStatusСhartData] = useState(null);
     const [ruleidChartData, setRuleidСhartData] = useState(null);
     const [projectChartData, setProjectСhartData] = useState(null);
     const [authorChartData, setAuthorСhartData] = useState(null);
+    const [severityChartData, setSeverityСhartData] = useState(null);
 
-    const colors = ["#7B8891","#B0F1D2","#FA3D3A","#66BB6A","#42A5F5","#FFA726","#723D7C","#3DC606","#DDA97B","#3D9BB0","#EE0632",
+    const colors = ["#FA3D3A","#66BB6A","#42A5F5","#FFA726","#723D7C","#3DC606","#DDA97B","#B0F1D2","#3D9BB0","#EE0632", "#7B8891",
     "#0C7101","#BE4CED","#860BF0","#98B842","#173F60","#2BB5BC","#6BF036","#8F2D41","#294B1B","#64A4B8","#75CE75","#98527C",
     "#C23279","#CBE8AF","#7292FE","#7E37BA","#7A9A53","#BEBC75","#02A569","#97528D","#4A5FCA","#CD470E","#D4F5E0","#CFF91B"]
     useEffect(() => {
@@ -31,7 +28,6 @@ const PieChartDemo = () => {
             if (metric=='status') {
                 console.log(metric);
                 console.log(json);
-                setStatusMetric(json);
                 setStatusСhartData({
                             labels: Object.keys(json),
                             datasets: [
@@ -46,7 +42,6 @@ const PieChartDemo = () => {
             } else if (metric=='ruleid') {
                 console.log(metric);
                 console.log(json);
-                setRuleidMetric(json);
                 setRuleidСhartData({
                     labels: Object.keys(json),
                     datasets: [
@@ -60,7 +55,6 @@ const PieChartDemo = () => {
             } else if (metric=='project') {
                 console.log(metric);
                 console.log(json);
-                setProjectMetric(json);
                 setProjectСhartData({
                     labels: Object.keys(json),
                     datasets: [
@@ -74,8 +68,20 @@ const PieChartDemo = () => {
             } else if (metric=='author') {
                 console.log(metric);
                 console.log(json);
-                setAuthorMetric(json);
                 setAuthorСhartData({
+                    labels: Object.keys(json),
+                    datasets: [
+                        {
+                            data: Object.values(json), 
+                            backgroundColor: colors,
+                            hoverBackgroundColor: colors
+                        }
+                    ]
+                });
+            } else if (metric=='severity') {
+                console.log(metric);
+                console.log(json);
+                setSeverityСhartData({
                     labels: Object.keys(json),
                     datasets: [
                         {
@@ -99,6 +105,9 @@ const PieChartDemo = () => {
         fetchData('author').catch((e) => {
             console.error(`An error occurred: ${e}`)
         });
+        fetchData('severity').catch((e) => {
+            console.error(`An error occurred: ${e}`)
+        });
     }, []);
 
     const [lightOptions] = useState({
@@ -117,6 +126,7 @@ const PieChartDemo = () => {
                 <Chart type="pie" data={ruleidChartData} options={lightOptions} style={{ position: 'relative', width: '25%' }} />
                 <Chart type="pie" data={projectChartData} options={lightOptions} style={{ position: 'relative', width: '25%' }} />
                 <Chart type="pie" data={authorChartData} options={lightOptions} style={{ position: 'relative', width: '25%' }} />
+                <Chart type="pie" data={severityChartData} options={lightOptions} style={{ position: 'relative', width: '25%' }} />
             </div>
     )
 }
