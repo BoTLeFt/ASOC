@@ -26,7 +26,8 @@ const Table = () => {
     { field: "commit_hash", header: "commit_hash" },
     { field: "status", header: "status" },
     { field: "ruleid", header: "ruleid" },
-    { field: "severity", header: "severity" }
+    { field: "severity", header: "severity" },
+    { field: "short_desc", header: "Short description" }
   ];
 
   const [visibleColumns, setVisibleColumns] = useState(defaultColumns);

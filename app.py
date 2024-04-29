@@ -205,6 +205,8 @@ async def upload_file(file: UploadFile = File(...), token: str = Depends(oauth2_
             ruleid = rule["id"]
             severity = rule["properties"]["security-severity"].capitalize()
             await db_connection.execute('''UPDATE sast_vulns SET severity = $1 WHERE ruleid = $2;''', severity, ruleid)
+            short_desc = rule["shortDescription"]["text"]
+            await db_connection.execute('''UPDATE sast_vulns SET short_desc = $1 WHERE ruleid = $2;''', short_desc, ruleid)
 
         await db_connection.close()
         to_return = ""
