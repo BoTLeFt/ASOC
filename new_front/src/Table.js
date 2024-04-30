@@ -5,6 +5,10 @@ import { MultiSelect } from "primereact/multiselect";
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { SelectButton } from 'primereact/selectbutton';
 import Dashboard from "./Dashboard";
+import Markdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { Tag } from 'primereact/tag';
+
 
 const Table = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -16,18 +20,90 @@ const Table = () => {
     window.location.href = '/login'; // Перенаправляем на страницу аутентификации
   }
   const [data, setData] = useState(null);
+
+  const statusChangeBodyTemplate = (rowData) => {
+    const handleChange = (e) => {
+      const newStatus = e.value;
+      const updatedData = [...data];
+      const rowIndex = updatedData.findIndex(item => item.id === rowData.id);
+      updatedData[rowIndex].status = newStatus;
+      setData(updatedData);
+  
+      const requestOptions = {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matchBasedId: updatedData[rowIndex].matchbasedid, status:  updatedData[rowIndex].status})
+      };
+      fetch('http://host.docker.internal:8080/change_status', requestOptions)
+      .then(response => {
+        console.log('Status updated successfully:', updatedData[rowIndex].status);
+      })
+      .catch(error => {
+        console.error('Error updating status:', error);
+      });
+
+      Dashboard.forceUpdate()
+    };
+  
+    return (
+      <SelectButton
+        value={rowData.status}
+        options={statusSelectItems}
+        onChange={handleChange}
+      />
+    );
+  };
+
+  const codeBodyTemplate = (rowData) => {
+    return(<SyntaxHighlighter language="csharp">
+      {rowData.code_line}
+    </SyntaxHighlighter>)
+  };
+
+  const messageBodyTemplate = (rowData) => {
+    return(<Markdown remarkPlugins={[remarkGfm]}>{rowData.message}</Markdown>)
+  };
+
+  const severityBodyTemplate = (rowData) => {
+    if (rowData.severity == "Critical") {
+      return(<Tag severity="danger" value={rowData.severity}></Tag>)
+    } else if (rowData.severity == "Medium") {
+      return(<Tag severity="warning" value={rowData.severity}></Tag>)
+    } else if (rowData.severity == "Low") {
+      return(<Tag severity="info" value={rowData.severity}></Tag>)
+    } else {
+      return(<Tag severity="secondary" value={rowData.severity}></Tag>)
+    }
+  };
+
+  const authorBodyTemplate = (rowData) => {
+    return(<div>{rowData.author.split("+")[0]}</div>)
+  };
+  
+  const urlBodyTemplate = (rowData) => {
+    return(<a href={rowData.uri_line}>{rowData.uri_line}</a>)
+  };
+
+
   const defaultColumns = [
-    { field: "ruleid", header: "ruleid" }
+    { field: "severity", header: "Критичность", template: severityBodyTemplate },
+    { field: "short_desc", header: "Short description" },
+    { field: "status", header: "Изменить статус", template: statusChangeBodyTemplate }
   ];
 
   const columns = [
-    { field: "author", header: "author" },
-    { field: "message", header: "message" },
-    { field: "commit_hash", header: "commit_hash" },
-    { field: "status", header: "status" },
-    { field: "ruleid", header: "ruleid" },
-    { field: "severity", header: "severity" },
-    { field: "short_desc", header: "Short description" }
+    { field: "severity", header: "Критичность", template: severityBodyTemplate },
+    { field: "short_desc", header: "Короткое описание" },
+    { field: "project", header: "Имя репозитория" },
+    { field: "author", header: "Автор", template: authorBodyTemplate },
+    { field: "code_line", header: "Код сработки", template: codeBodyTemplate },
+    { field: "message", header: "Описание", template: messageBodyTemplate },
+    { field: "uri_line", header: "URL до сработки", template: urlBodyTemplate },
+    { field: "commit_hash", header: "Хэш коммита" },
+    { field: "ruleid", header: "ID правила" },
+    { field: "matchbasedid", header: "ID сработки" },
+    { field: "notification_status", header: "Статус нотификации" },
+    { field: "status", header: "Изменить статус", template: statusChangeBodyTemplate }
   ];
 
   const [visibleColumns, setVisibleColumns] = useState(defaultColumns);
@@ -77,44 +153,7 @@ const Table = () => {
   );
   const footer = <p>Total data = {data ? data.length : 0}</p>;
 
-  const statusChangeBodyTemplate = (rowData) => {
-    const handleChange = (e) => {
-      const newStatus = e.value;
-      const updatedData = [...data];
-      const rowIndex = updatedData.findIndex(item => item.id === rowData.id);
-      updatedData[rowIndex].status = newStatus;
-      setData(updatedData);
   
-      const requestOptions = {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ matchBasedId: updatedData[rowIndex].matchbasedid, status:  updatedData[rowIndex].status})
-      };
-      fetch('http://host.docker.internal:8080/change_status', requestOptions)
-      .then(response => {
-        console.log('Status updated successfully:', updatedData[rowIndex].status);
-      })
-      .catch(error => {
-        console.error('Error updating status:', error);
-      });
-
-      Dashboard.forceUpdate()
-    };
-  
-    return (
-      <SelectButton
-        value={rowData.status}
-        options={statusSelectItems}
-        onChange={handleChange}
-      />
-    );
-  };
-
-  const codeBodyTemplate = (rowData) => {
-    return(<SyntaxHighlighter language="csharp">
-      {rowData.code_line}
-    </SyntaxHighlighter>)
-  };
 
   return (
     <div className="table-wrapper">
@@ -136,34 +175,31 @@ const Table = () => {
         onSelectionChange={(e) => setSelectedProduct(e.value)}
         dataKey="id"
         >
-        <Column
-          selectionMode="multiple"
-          field="Select"
-          header="Select"
-          sortable></Column>
-        
-        {visibleColumns.map((col) => (
-          <Column
-            key={col.field}
-            field={col.field}
-            header={col.header}
-            filter
-            sortable
-          />
-        ))}
-        <Column
-          field="code_line"
-          header="code_line"
-          body={codeBodyTemplate}
-          sortable>
-        </Column>
-        <Column
-          field="status"
-          header="Change status"
-          body={statusChangeBodyTemplate}
-          sortable>
-        </Column>
-
+        {visibleColumns.map(col => {
+          if (col.template) {
+            return (
+              <Column
+                key={col.field}
+                field={col.field}
+                header={col.header}
+                body={col.template}
+                filter
+                sortable
+              />
+            )
+          } else {
+            return (
+              <Column
+                key={col.field}
+                field={col.field}
+                header={col.header}
+                filter
+                sortable
+              />
+            )
+          }
+        }
+        )}
       </DataTable>
     </div>
   );
