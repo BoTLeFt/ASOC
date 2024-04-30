@@ -395,6 +395,14 @@ async def get_metrics(metric: str, token: str = Depends(oauth2_scheme)):
                 result_dict[row['ruleid']] = result_dict.get(row['ruleid'], 0) + 1
             await db_connection.close()
             return dict(sorted(result_dict.items()))
+        elif metric == "short_desc":
+            db_connection = await connect_to_database()
+            data = await db_connection.fetch("SELECT short_desc FROM sast_vulns")
+            result_dict = dict()
+            for row in data:
+                result_dict[row['short_desc']] = result_dict.get(row['short_desc'], 0) + 1
+            await db_connection.close()
+            return dict(sorted(result_dict.items()))
         elif metric == "project":
             db_connection = await connect_to_database()
             data = await db_connection.fetch("SELECT project FROM sast_vulns")

@@ -8,7 +8,7 @@ const PieChartDemo = () => {
         window.location.href = '/login'; // Перенаправляем на страницу аутентификации
     }
     const [statusChartData, setStatusСhartData] = useState(null);
-    const [ruleidChartData, setRuleidСhartData] = useState(null);
+    const [shortDescChartData, setShortDescСhartData] = useState(null);
     const [projectChartData, setProjectСhartData] = useState(null);
     const [authorChartData, setAuthorСhartData] = useState(null);
     const [severityChartData, setSeverityСhartData] = useState(null);
@@ -39,10 +39,10 @@ const PieChartDemo = () => {
                             ]
                         }
                     );
-            } else if (metric=='ruleid') {
+            } else if (metric=='short_desc') {
                 console.log(metric);
                 console.log(json);
-                setRuleidСhartData({
+                setShortDescСhartData({
                     labels: Object.keys(json),
                     datasets: [
                         {
@@ -123,7 +123,7 @@ const PieChartDemo = () => {
     return (
             <div className="dashboard">
                 <Chart type="pie" data={statusChartData} options={lightOptions} style={{ position: 'relative', width: '25%' }} />
-                <Chart type="pie" data={ruleidChartData} options={lightOptions} style={{ position: 'relative', width: '25%' }} />
+                <Chart type="pie" data={shortDescChartData} options={lightOptions} style={{ position: 'relative', width: '25%' }} />
                 <Chart type="pie" data={projectChartData} options={lightOptions} style={{ position: 'relative', width: '25%' }} />
                 <Chart type="pie" data={authorChartData} options={lightOptions} style={{ position: 'relative', width: '25%' }} />
                 <Chart type="pie" data={severityChartData} options={lightOptions} style={{ position: 'relative', width: '25%' }} />
