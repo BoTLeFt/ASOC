@@ -96,7 +96,7 @@ const PieChartDemo = () => {
         fetchData('status').catch((e) => {
             console.error(`An error occurred: ${e}`)
         });
-        fetchData('ruleid').catch((e) => {
+        fetchData('short_desc').catch((e) => {
             console.error(`An error occurred: ${e}`)
         });
         fetchData('project').catch((e) => {
