@@ -13,7 +13,7 @@ const PieChartDemo = () => {
     const [authorChartData, setAuthorСhartData] = useState(null);
     const [severityChartData, setSeverityСhartData] = useState(null);
 
-    const colors = ["#FA3D3A","#66BB6A","#42A5F5","#FFA726","#723D7C","#3DC606","#DDA97B","#B0F1D2","#3D9BB0","#EE0632", "#7B8891",
+    const colors = ["#FA3D3A","#42A5F5","#FFA726","#66BB6A","#723D7C","#3DC606","#DDA97B","#B0F1D2","#3D9BB0","#EE0632", "#7B8891",
     "#0C7101","#BE4CED","#860BF0","#98B842","#173F60","#2BB5BC","#6BF036","#8F2D41","#294B1B","#64A4B8","#75CE75","#98527C",
     "#C23279","#CBE8AF","#7292FE","#7E37BA","#7A9A53","#BEBC75","#02A569","#97528D","#4A5FCA","#CD470E","#D4F5E0","#CFF91B"]
     useEffect(() => {
@@ -121,12 +121,14 @@ const PieChartDemo = () => {
     });
     
     return (
-            <div className="dashboard">
-                <Chart type="pie" data={statusChartData} options={lightOptions} style={{ position: 'relative', width: '25%' }} />
-                <Chart type="pie" data={shortDescChartData} options={lightOptions} style={{ position: 'relative', width: '25%' }} />
-                <Chart type="pie" data={projectChartData} options={lightOptions} style={{ position: 'relative', width: '25%' }} />
-                <Chart type="pie" data={authorChartData} options={lightOptions} style={{ position: 'relative', width: '25%' }} />
-                <Chart type="pie" data={severityChartData} options={lightOptions} style={{ position: 'relative', width: '25%' }} />
+            <div>
+                <div className="dashboard">
+                    <Chart type="pie" data={statusChartData} options={lightOptions} style={{ position: 'relative', width: '25%', height: '40%' }} />
+                    <Chart type="pie" data={shortDescChartData} options={lightOptions} style={{ position: 'relative', width: '25%', height: '40%' }} />
+                    <Chart type="pie" data={projectChartData} options={lightOptions} style={{ position: 'relative', width: '25%', height: '40%' }} />
+                    <Chart type="pie" data={authorChartData} options={lightOptions} style={{ position: 'relative', width: '25%', height: '40%' }} />
+                    <Chart type="pie" data={severityChartData} options={lightOptions} style={{ position: 'relative', width: '25%', height: '40%'}} />
+                </div>
             </div>
     )
 }

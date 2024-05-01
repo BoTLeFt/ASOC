@@ -41,8 +41,6 @@ const Table = () => {
       .catch(error => {
         console.error('Error updating status:', error);
       });
-
-      Dashboard.forceUpdate()
     };
   
     return (
@@ -88,7 +86,6 @@ const Table = () => {
   const defaultColumns = [
     { field: "severity", header: "Критичность", template: severityBodyTemplate },
     { field: "short_desc", header: "Short description" },
-    { field: "status", header: "Изменить статус", template: statusChangeBodyTemplate }
   ];
 
   const columns = [
@@ -198,8 +195,15 @@ const Table = () => {
               />
             )
           }
+          
         }
         )}
+        <Column
+          field="status"
+          header="Change status"
+          body={statusChangeBodyTemplate}
+          sortable>
+        </Column>
       </DataTable>
     </div>
   );

@@ -168,7 +168,12 @@ async def upload_file(file: UploadFile = File(...), token: str = Depends(oauth2_
         db_connection = await connect_to_database()
 
         contents = await file.read()
-        author, commit_hash = file.filename.split("_")
+        print(file.filename)
+        filename_list = file.filename.split("_")
+        commit_hash = file.filename.split("_")[-1]
+        author = ""
+        for i in range(len(filename_list)-1):
+            author += filename_list[i]
         results = json.loads(contents)["runs"][0]["results"]
         
         vulns_to_bd = []
@@ -220,8 +225,8 @@ async def upload_file(file: UploadFile = File(...), token: str = Depends(oauth2_
         raise HTTPException(status_code=401, detail="Token has expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
-    except Exception:
-        raise HTTPException(status_code=404, detail="Send valid file")
+    # except Exception:
+    #     raise HTTPException(status_code=404, detail="Send valid file")
 
 
 # Ручка для смены статуса уязвимости
@@ -235,6 +240,7 @@ async def change_status(request_data: StatusChangeRequest, token: str = Depends(
         
         db_connection = await connect_to_database()
         await db_connection.execute('''UPDATE sast_vulns SET status = $1 WHERE matchBasedId = $2;''', request_data.status, request_data.matchBasedId)
+        print("Changed", request_data.matchBasedId)
         await db_connection.close()
         return {
             "status": "changed"
@@ -351,9 +357,10 @@ async def change_status(request_data: DetailsAddRequest, token: str = Depends(oa
         uris = await db_connection.fetch('''SELECT uri_line, matchbasedid FROM sast_vulns WHERE commit_hash = $1;''', request_data.commit_hash)
         print(uris)
         for uri in uris:
-            if uri['uri_line'][10] == request_data.repo_link[10]:
-                print("skip")
-                continue
+            if len(uri['uri_line']) > 10:
+                if uri['uri_line'][:10:] == request_data.repo_link[:10:]:
+                    print("skip")
+                    continue
             new_uri = request_data.repo_link + request_data.project_name + "/-/blob/" + request_data.commit_hash + "/" + uri['uri_line'].split(":")[0] + "#L" + uri['uri_line'].split(":")[1]
             print(new_uri)
             await db_connection.execute('''UPDATE sast_vulns SET uri_line = $1 WHERE matchbasedid = $2;''', new_uri, uri['matchbasedid'])
